@@ -1,5 +1,5 @@
 resource "aws_iam_role" "ollamabot_role" {
-  name               = "StatisticsbotRole"
+  name               = "OllamabotRole"
   description        = "Role for the ollamabot"
   assume_role_policy = data.aws_iam_policy_document.assume_policy_document.json
 }

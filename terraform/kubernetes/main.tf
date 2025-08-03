@@ -24,18 +24,3 @@ resource "kubernetes_service_v1" "ollamabot" {
     }
   }
 }
-
-resource "kubernetes_persistent_volume_claim_v1" "duckdb" {
-  metadata {
-    name      = "duckdb"
-    namespace = kubernetes_namespace.ollamabot.metadata.0.name
-  }
-  spec {
-    access_modes = ["ReadWriteOnce"]
-    resources {
-      requests = {
-        "storage" = "3Gi"
-      }
-    }
-  }
-}

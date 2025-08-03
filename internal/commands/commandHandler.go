@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/stollenaar/ollamaBot/internal/util"
+	"github.com/stollenaar/ollamabot/internal/util"
 )
 
 type CommandI interface {

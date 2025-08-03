@@ -46,12 +46,7 @@ func init() {
 }
 
 func main() {
-	bot.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsMessageContent | discordgo.IntentGuildMessageReactions)
-
-	bot.AddHandler(database.MessageCreateListener)
-	bot.AddHandler(database.MessageUpdateListener)
-	bot.AddHandler(database.MessageReactAddListener)
-	bot.AddHandler(database.MessageReactRemoveListener)
+	// bot.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsMessageContent | discordgo.IntentGuildMessageReactions)
 
 	err := bot.Open()
 	if err != nil {
@@ -84,10 +79,10 @@ func main() {
 		}
 		registeredCommands[i] = cmd
 	}
+	log.Println("Bot started")
 
-	database.Init(bot, GuildID)
 	defer bot.Close()
-	go routes.CreateRouter(bot)
+	// go routes.CreateRouter(bot)
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
