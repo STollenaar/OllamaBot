@@ -54,28 +54,12 @@ resource "kubernetes_deployment" "ollamabot" {
             value = "/discord_tokens/${local.name}"
           }
           env {
-            name  = "DUCKDB_PATH"
-            value = "/duckdb"
-          }
-          env {
             name  = "OLLAMA_URL"
             value = "ollama.ollama.svc.cluster.local:11434"
           }
-          #   env {
-          #     name  = "OLLAMA_URL"
-          #     value = "ollama.danielpower.ca"
-          #   }
-          #   env {
-          #     name  = "OLLAMA_AUTH_TYPE"
-          #     value = "basic"
-          #   }
           env {
-            name  = "AWS_OLLAMA_AUTH_USERNAME"
-            value = "/ollama/dan_username"
-          }
-          env {
-            name  = "AWS_OLLAMA_AUTH_PASSWORD"
-            value = "/ollama/dan_password"
+            name  = "ADMIN_USER_ID"
+            value = "134337759446958081"
           }
           port {
             container_port = 8080
