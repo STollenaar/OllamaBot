@@ -15,16 +15,12 @@ import (
 )
 
 type Config struct {
-	DEBUG         bool
-	DISCORD_TOKEN string
-	DUCKDB_PATH   string
-
-	AWS_REGION         string
+	DEBUG              bool
+	DISCORD_TOKEN      string
 	AWS_PARAMETER_NAME string
-	TERMINAL_REGEX     string
 
-	SQS_REQUEST  string
-	SQS_RESPONSE string
+	AWS_REGION     string
+	TERMINAL_REGEX string
 
 	OLLAMA_URL       string
 	OLLAMA_AUTH_TYPE string
@@ -33,6 +29,8 @@ type Config struct {
 	OLLAMA_AUTH_USERNAME     string
 	AWS_OLLAMA_AUTH_PASSWORD string
 	OLLAMA_AUTH_PASSWORD     string
+
+	ADMIN_USER_ID string
 }
 
 var (
@@ -54,9 +52,6 @@ func init() {
 		AWS_REGION:               os.Getenv("AWS_REGION"),
 		DISCORD_TOKEN:            os.Getenv("DISCORD_TOKEN"),
 		AWS_PARAMETER_NAME:       os.Getenv("AWS_PARAMETER_NAME"),
-		SQS_REQUEST:              os.Getenv("SQS_REQUEST"),
-		DUCKDB_PATH:              os.Getenv("DUCKDB_PATH"),
-		SQS_RESPONSE:             os.Getenv("SQS_RESPONSE"),
 		TERMINAL_REGEX:           os.Getenv("TERMINAL_REGEX"),
 		OLLAMA_URL:               os.Getenv("OLLAMA_URL"),
 		OLLAMA_AUTH_TYPE:         os.Getenv("OLLAMA_AUTH_TYPE"),
@@ -64,13 +59,13 @@ func init() {
 		OLLAMA_AUTH_PASSWORD:     os.Getenv("OLLAMA_AUTH_PASSWORD"),
 		AWS_OLLAMA_AUTH_USERNAME: os.Getenv("AWS_OLLAMA_AUTH_USERNAME"),
 		AWS_OLLAMA_AUTH_PASSWORD: os.Getenv("AWS_OLLAMA_AUTH_PASSWORD"),
+		ADMIN_USER_ID:            os.Getenv("ADMIN_USER_ID"),
 	}
 	if ConfigFile.TERMINAL_REGEX == "" {
 		ConfigFile.TERMINAL_REGEX = `(\.|,|:|;|\?|!)$`
 	}
 
 }
-
 
 func init() {
 

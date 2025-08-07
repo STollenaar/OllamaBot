@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/stollenaar/ollamabot/internal/commands/admincommand"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
 
@@ -14,7 +15,9 @@ type CommandI interface {
 }
 
 var (
-	Commands            = []CommandI{}
+	Commands = []CommandI{
+		admincommand.AdminCmd,
+	}
 	ApplicationCommands []*discordgo.ApplicationCommand
 	CommandHandlers     = make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))
 	ModalSubmitHandlers = make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))

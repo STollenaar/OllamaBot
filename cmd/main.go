@@ -46,7 +46,7 @@ func init() {
 }
 
 func main() {
-	// bot.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuildMessages | discordgo.IntentsGuildMembers | discordgo.IntentsMessageContent | discordgo.IntentGuildMessageReactions)
+	bot.Identify.Intents = discordgo.Intent(discordgo.IntentsNone)
 
 	err := bot.Open()
 	if err != nil {

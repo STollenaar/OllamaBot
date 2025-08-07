@@ -11,14 +11,13 @@
             "mode": "auto",
             "cwd": "${workspaceFolder}/cmd",
             "program": "${workspaceFolder}/cmd/main.go",
-            "env": {
-                "CGO_ENABLED": "1",
-                "CC": "gcc",
-                "CGO_CFLAGS": "-g -O2",
-                "CGO_LDFLAGS": "-v"
-            },
+            //     "CGO_ENABLED": "1",
+            //     "CC": "gcc",
+            //     "CGO_CFLAGS": "-g -O2",
+            //     "CGO_LDFLAGS": "-v"
+            // },
             "args": [
-                // "--guild=497544520695808000",
+                "--guild=497544520695808000",
                 "--debug",
                 "--rmcmd"
             ]
