@@ -5,6 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/stollenaar/ollamabot/internal/commands/admincommand"
+	"github.com/stollenaar/ollamabot/internal/commands/listcommand"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
 
@@ -17,6 +18,7 @@ type CommandI interface {
 var (
 	Commands = []CommandI{
 		admincommand.AdminCmd,
+		listcommand.ListCmd,
 	}
 	ApplicationCommands []*discordgo.ApplicationCommand
 	CommandHandlers     = make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))

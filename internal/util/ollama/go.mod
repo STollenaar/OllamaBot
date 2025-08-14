@@ -1,6 +1,6 @@
 module github.com/stollenaar/ollamabot/internal/util/ollama
 
-go 1.24.4
+go 1.25.0
 
 replace github.com/stollenaar/ollamabot/internal/util => ../
 

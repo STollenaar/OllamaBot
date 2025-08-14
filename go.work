@@ -1,8 +1,10 @@
-go 1.24.4
+go 1.25.0
 
 use (
 	./cmd
 	./internal/commands
-	./internal/commands/admin
+	./internal/commands/admincommand
+    ./internal/database
+    ./internal/routes
 	./internal/util
 )

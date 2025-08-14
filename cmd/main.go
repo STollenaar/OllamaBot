@@ -7,10 +7,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/stollenaar/ollamabot/internal/commands"
-	"github.com/stollenaar/ollamabot/internal/util"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/stollenaar/ollamabot/internal/commands"
+	"github.com/stollenaar/ollamabot/internal/routes"
+	"github.com/stollenaar/ollamabot/internal/util"
 )
 
 var (
@@ -82,7 +82,7 @@ func main() {
 	log.Println("Bot started")
 
 	defer bot.Close()
-	// go routes.CreateRouter(bot)
+	go routes.CreateRouter()
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)

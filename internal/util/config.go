@@ -17,6 +17,7 @@ import (
 type Config struct {
 	DEBUG              bool
 	DISCORD_TOKEN      string
+	DUCKDB_PATH        string
 	AWS_PARAMETER_NAME string
 
 	AWS_REGION     string
@@ -53,6 +54,7 @@ func init() {
 		DISCORD_TOKEN:            os.Getenv("DISCORD_TOKEN"),
 		AWS_PARAMETER_NAME:       os.Getenv("AWS_PARAMETER_NAME"),
 		TERMINAL_REGEX:           os.Getenv("TERMINAL_REGEX"),
+		DUCKDB_PATH:              os.Getenv("DUCKDB_PATH"),
 		OLLAMA_URL:               os.Getenv("OLLAMA_URL"),
 		OLLAMA_AUTH_TYPE:         os.Getenv("OLLAMA_AUTH_TYPE"),
 		OLLAMA_AUTH_USERNAME:     os.Getenv("OLLAMA_AUTH_USERNAME"),
