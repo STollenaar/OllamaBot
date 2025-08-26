@@ -2,7 +2,7 @@ locals {
   name = "ollamabot"
 }
 
-resource "kubernetes_namespace" "ollamabot" {
+resource "kubernetes_namespace_v1" "ollamabot" {
   metadata {
     name = local.name
   }
@@ -11,7 +11,7 @@ resource "kubernetes_namespace" "ollamabot" {
 resource "kubernetes_service_v1" "ollamabot" {
   metadata {
     name      = "ollamabot"
-    namespace = kubernetes_namespace.ollamabot.metadata.0.name
+    namespace = kubernetes_namespace_v1.ollamabot.id
   }
   spec {
     selector = {
@@ -21,6 +21,22 @@ resource "kubernetes_service_v1" "ollamabot" {
       name        = "router"
       target_port = 8080
       port        = 80
+    }
+  }
+}
+
+
+resource "kubernetes_persistent_volume_claim_v1" "duckdb" {
+  metadata {
+    name      = "duckdb"
+    namespace = kubernetes_namespace_v1.ollamabot.id
+  }
+  spec {
+    access_modes = ["ReadWriteOnce"]
+    resources {
+      requests = {
+        "storage" = "3Gi"
+      }
     }
   }
 }

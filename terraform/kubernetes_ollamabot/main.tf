@@ -3,7 +3,7 @@ locals {
   image = var.docker_image != null ? var.docker_image : "${data.terraform_remote_state.discord_bots_cluster.outputs.discord_bots_repo.repository_url}:${local.name}-1.1.16-SNAPSHOT-ab8ea54"
 }
 
-resource "kubernetes_deployment" "ollamabot" {
+resource "kubernetes_deployment_v1" "ollamabot" {
   metadata {
     name      = "ollamabot"
     namespace = data.terraform_remote_state.kubernetes.outputs.namespace.metadata.0.name
@@ -64,6 +64,17 @@ resource "kubernetes_deployment" "ollamabot" {
           port {
             container_port = 8080
             name           = "router"
+          }
+          volume_mount {
+            name       = data.terraform_remote_state.kubernetes.outputs.persistent_volume_claim.metadata.0.name
+            mount_path = "/duckdb"
+          }
+
+        }
+        volume {
+          name = data.terraform_remote_state.kubernetes.outputs.persistent_volume_claim.metadata.0.name
+          persistent_volume_claim {
+            claim_name = data.terraform_remote_state.kubernetes.outputs.persistent_volume_claim.metadata.0.name
           }
         }
       }

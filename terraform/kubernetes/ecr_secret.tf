@@ -4,7 +4,7 @@ resource "kubernetes_manifest" "vault_backend" {
     kind       = "SecretStore"
     metadata = {
       name      = "vault-backend"
-      namespace = kubernetes_namespace.ollamabot.metadata.0.name
+      namespace = kubernetes_namespace_v1.ollamabot.id
     }
     spec = {
       provider = {
@@ -30,7 +30,7 @@ resource "kubernetes_manifest" "external_secret" {
     kind       = "ExternalSecret"
     metadata = {
       name      = "ecr-auth"
-      namespace = kubernetes_namespace.ollamabot.metadata.0.name
+      namespace = kubernetes_namespace_v1.ollamabot.id
     }
     spec = {
       secretStoreRef = {
