@@ -19,6 +19,7 @@ var (
 	GuildID        = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
 	Debug          = flag.Bool("debug", false, "Run in debug mode")
 	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
+	PurgeCommands  = flag.Bool("purgecmd", false, "Remove all loaded commands")
 )
 
 func init() {
@@ -53,13 +54,22 @@ func main() {
 		log.Fatal("Error starting bot ", err)
 	}
 
-	log.Println("Adding commands...")
 	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands.ApplicationCommands))
 	bCommands, err := bot.ApplicationCommands(bot.State.User.ID, *GuildID)
 	if err != nil {
 		log.Printf("Error fetching registered commands: %e", err)
 	}
-
+	if *PurgeCommands {
+		for _, cmd := range bCommands {
+			err := bot.ApplicationCommandDelete(bot.State.User.ID, *GuildID, cmd.ID)
+			if err != nil {
+				log.Printf("Cannot delete '%v' command: %v\n", cmd.Name, err)
+			}
+		}
+		return
+	}
+	
+	log.Println("Adding commands...")
 	for i, v := range commands.ApplicationCommands {
 		if cmd := containsCommand(v, bCommands); cmd != nil && optionsEqual(v, cmd) {
 			registeredCommands[i] = cmd

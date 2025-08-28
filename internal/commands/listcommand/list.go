@@ -3,6 +3,7 @@ package listcommand
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	ollamaApi "github.com/ollama/ollama/api"
@@ -71,11 +72,15 @@ func (l ListCommand) Handler(bot *discordgo.Session, interaction *discordgo.Inte
 		return
 	}
 
-	for _, model := range models {
+	for model, platforms := range models {
+		var costs []string
+		for _, platform := range platforms {
+			costs = append(costs, fmt.Sprintf("### Platform: %s\n### Cost: %d/token", platform.PlatformName, platform.Cost))
+		}
 		container := discordgo.Container{
 			Components: []discordgo.MessageComponent{
 				discordgo.TextDisplay{
-					Content: fmt.Sprintf("### Name: %s\n### Cost: %d\n", model.Name, model.Cost),
+					Content: fmt.Sprintf("### Name: %s\n%s", model, strings.Join(costs, "\n")),
 				},
 			},
 		}
