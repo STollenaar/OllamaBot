@@ -24,7 +24,7 @@ func Exit() {
 type Transaction struct {
 	ID         string    `json:"id"`
 	UserID     string    `json:"user_id"`
-	PlatformID string    `json:"platform_name"`
+	PlatformID string    `json:"platform_id"`
 	Amount     int       `json:"amount"`
 	Date       time.Time `json:"date"`
 	Status     string    `json:"status"`
@@ -37,13 +37,14 @@ type ModelCost struct {
 
 // Platform represents a platform with buying power
 type Platform struct {
-	Name          string `json:"id"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
 	BuyingPower int    `json:"buying_power"`
 }
 
 // PlatformModel represents the cost of a model on a specific platform
 type PlatformModel struct {
-	PlatformID string `json:"platform_name"`
+	PlatformID string `json:"platform_id"`
 	ModelName  string `json:"model_name"`
 	Cost       int    `json:"cost"`
 }
@@ -60,9 +61,10 @@ func init() {
 
 	_, err = duckdbClient.Exec(`
 		CREATE TABLE IF NOT EXISTS platforms (
+			id VARCHAR,
 			name VARCHAR,
 			buying_power INTEGER,
-			PRIMARY KEY (name)
+			PRIMARY KEY (id)
 		);
 	`)
 
@@ -83,11 +85,11 @@ func init() {
 
 	_, err = duckdbClient.Exec(`
         CREATE TABLE IF NOT EXISTS platform_models (
-            platform_name VARCHAR,
+            platform_id VARCHAR,
             model_name VARCHAR,
             cost INTEGER,
-            PRIMARY KEY (platform_name, model_name),
-            FOREIGN KEY (platform_name) REFERENCES platforms(name),
+            PRIMARY KEY (platform_id, model_name),
+            FOREIGN KEY (platform_id) REFERENCES platforms(id),
             FOREIGN KEY (model_name) REFERENCES models(name)
         );
     `)
@@ -100,13 +102,13 @@ func init() {
 		CREATE TABLE IF NOT EXISTS transactions (
             id UUID DEFAULT uuid(),
 			user_id VARCHAR,
-			platform_name VARCHAR,
+			platform_id VARCHAR,
 			model_name VARCHAR,
 			amount INTEGER,
 			date TIMESTAMP,
 			status VARCHAR,
 			PRIMARY KEY (id),
-			FOREIGN KEY (platform_name) REFERENCES platforms(name),
+			FOREIGN KEY (platform_id) REFERENCES platforms(id),
 			FOREIGN KEY (model_name) REFERENCES models(name)
 		);
 	`)
@@ -119,7 +121,7 @@ func init() {
 // AddTransaction inserts a new transaction into the database.
 func AddTransaction(tx Transaction) error {
 	_, err := duckdbClient.Exec(`
-        INSERT INTO transactions (user_id, platform_name, amount, date, status)
+        INSERT INTO transactions (user_id, platform_id, amount, date, status)
         VALUES (?, ?, ?, ?, ?);
     `, tx.UserID, tx.PlatformID, tx.Amount, tx.Date, tx.Status)
 	return err
@@ -128,7 +130,7 @@ func AddTransaction(tx Transaction) error {
 // GetTransactionByID checks if a transaction exists and returns it by ID.
 func GetTransactionByID(id string) (*Transaction, error) {
 	row := duckdbClient.QueryRow(`
-        SELECT id, user_id, platform_name, amount, date, status
+        SELECT id, user_id, platform_id, amount, date, status
         FROM transactions
         WHERE id = ?;
     `, id)
@@ -144,9 +146,9 @@ func GetTransactionByID(id string) (*Transaction, error) {
 // GetTransactionsByPlatformID checks if a transaction exists and returns it by ID.
 func GetTransactionByPlatformID(id string) (transactions []*Transaction, err error) {
 	rows, err := duckdbClient.Query(`
-        SELECT id, user_id, platform_name, amount, date, status
+        SELECT id, user_id, platform_id, amount, date, status
         FROM transactions
-        WHERE platform_name = ?;
+        WHERE platform_id = ?;
     `, id)
 
 	if err != nil {
@@ -154,11 +156,11 @@ func GetTransactionByPlatformID(id string) (transactions []*Transaction, err err
 	}
 
 	for rows.Next() {
-		var id, user_id, platform_name, status string
+		var id, user_id, platform_id, status string
 		var amount int
 		var date time.Time
 
-		err = rows.Scan(&id, &user_id, &platform_name, &amount, &date, &status)
+		err = rows.Scan(&id, &user_id, &platform_id, &amount, &date, &status)
 		if err != nil {
 			break
 		}
@@ -166,7 +168,7 @@ func GetTransactionByPlatformID(id string) (transactions []*Transaction, err err
 		transactions = append(transactions, &Transaction{
 			ID:         id,
 			UserID:     user_id,
-			PlatformID: platform_name,
+			PlatformID: platform_id,
 			Amount:     amount,
 			Date:       date,
 			Status:     status,
@@ -179,7 +181,7 @@ func GetTransactionByPlatformID(id string) (transactions []*Transaction, err err
 func UpdateTransaction(tx Transaction) error {
 	_, err := duckdbClient.Exec(`
         UPDATE transactions
-        SET user_id = ?, platform_name = ?, amount = ?, date = ?, status = ?
+        SET user_id = ?, platform_id = ?, amount = ?, date = ?, status = ?
         WHERE id = ?;
     `, tx.UserID, tx.PlatformID, tx.Amount, tx.Date, tx.Status, tx.ID)
 	return err
@@ -193,15 +195,16 @@ func ListPlatforms() (platforms []Platform, err error) {
 	}
 
 	for rows.Next() {
-		var name string
+		var id, name string
 		var buying_power int
 
-		err = rows.Scan(&name, &buying_power)
+		err = rows.Scan(&id, &name, &buying_power)
 		if err != nil {
 			break
 		}
 		platforms = append(platforms, Platform{
-			Name:          name,
+			ID:          id,
+			Name:        name,
 			BuyingPower: buying_power,
 		})
 	}
@@ -211,9 +214,9 @@ func ListPlatforms() (platforms []Platform, err error) {
 // AddPlatform adds a platform
 func AddPlatform(platform Platform) error {
 	_, err := duckdbClient.Exec(`
-		INSERT INTO platforms (name, buying_power)
-		VALUES (?, ?);
-	`, platform.Name, platform.BuyingPower)
+		INSERT INTO platforms (id, name, buying_power)
+		VALUES (?, ?, ?);
+	`, platform.ID, platform.Name, platform.BuyingPower)
 	return err
 }
 
@@ -227,7 +230,7 @@ func RemovePlatform(id string) error {
 func GetPlatformModelCost(platformID, modelName string) (int, error) {
 	row := duckdbClient.QueryRow(`
         SELECT cost FROM platform_models
-        WHERE platform_name = ? AND model_name = ?;
+        WHERE platform_id = ? AND model_name = ?;
     `, platformID, modelName)
 
 	var cost int
@@ -247,12 +250,14 @@ func GetPlatformBuyingPower(platformID string) (int, error) {
 	return buyingPower, err
 }
 
-func ListModels() (models map[string][]ModelCost, err error) {
+func ListPlatformModels() (models map[string][]ModelCost, err error) {
 	models = make(map[string][]ModelCost)
 
 	rows, err := duckdbClient.Query(`
-	 SELECT * 
-	 FROM platform_models;
+	 SELECT pm.model_name, pm.cost, p.name AS platform_name
+	 FROM platform_models AS pm
+	 JOIN platforms AS p
+	 ON pm.platform_id = p.id;
 	`)
 
 	if err != nil {
@@ -274,4 +279,38 @@ func ListModels() (models map[string][]ModelCost, err error) {
 
 	}
 	return
+}
+
+// AddModel adds a model
+func AddModel(model string) error {
+	_, err := duckdbClient.Exec(`
+		INSERT INTO models (name)
+		VALUES (?);
+	`, model)
+	return err
+}
+
+// ListModels lists current added models
+func ListModels() (models []string, err error) {
+	rows, err := duckdbClient.Query(`SELECT * FROM models;`)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var name string
+
+		err = rows.Scan(&name)
+		if err != nil {
+			break
+		}
+		models = append(models, name)
+	}
+	return
+}
+
+// RemoveModel remove a model by id
+func RemoveModel(id string) error {
+	_, err := duckdbClient.Exec(`DELETE FROM models WHERE id = ?;`, id)
+	return err
 }

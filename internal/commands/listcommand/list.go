@@ -56,7 +56,7 @@ func (l ListCommand) Handler(bot *discordgo.Session, interaction *discordgo.Inte
 		return
 	}
 
-	models, err := database.ListModels()
+	models, err := database.ListPlatformModels()
 	var components []discordgo.MessageComponent
 
 	if err != nil {
