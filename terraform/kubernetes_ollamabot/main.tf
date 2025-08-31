@@ -54,7 +54,7 @@ resource "kubernetes_deployment_v1" "ollamabot" {
             value = "/discord_tokens/${local.name}"
           }
           env {
-            name  = "OLLAMA_URL"
+            name  = "OLLAMA_HOST"
             value = "ollama.ollama.svc.cluster.local:11434"
           }
           env {
