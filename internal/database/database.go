@@ -1,9 +1,15 @@
 package database
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"embed"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/stollenaar/ollamabot/internal/util"
@@ -13,6 +19,9 @@ import (
 
 var (
 	duckdbClient *sql.DB
+
+	//go:embed changelog/*.sql
+	changeLogFiles embed.FS
 )
 
 func Exit() {
@@ -42,11 +51,11 @@ type Platform struct {
 	BuyingPower int    `json:"buying_power"`
 }
 
-// PlatformModel represents the cost of a model on a specific platform
+// PlatformModel represents the tokens of a model on a specific platform
 type PlatformModel struct {
 	PlatformID string `json:"platform_id"`
 	ModelName  string `json:"model_name"`
-	Cost       int    `json:"cost"`
+	Tokens     int    `json:"tokens"`
 }
 
 func init() {
@@ -59,63 +68,98 @@ func init() {
 		log.Fatal(err)
 	}
 
+	defer duckdbClient.Close()
+
+	// Ensure changelog table exists
 	_, err = duckdbClient.Exec(`
-		CREATE TABLE IF NOT EXISTS platforms (
-			id VARCHAR,
-			name VARCHAR,
-			buying_power INTEGER,
-			PRIMARY KEY (id)
-		);
+	CREATE TABLE IF NOT EXISTS database_changelog (
+		id INTEGER PRIMARY KEY,
+		name VARCHAR NOT NULL,
+		applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		checksum VARCHAR,
+		success BOOLEAN DEFAULT TRUE
+	);
 	`)
 
 	if err != nil {
-		log.Fatalf("Failed to create platforms table: %v", err)
+		log.Fatalf("failed to create changelog table: %v", err)
 	}
 
-	_, err = duckdbClient.Exec(`
-		CREATE TABLE IF NOT EXISTS models (
-			name VARCHAR,
-			PRIMARY KEY (name),
-		);
-	`)
+	if err := runMigrations(); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
 
+	log.Println("All migrations applied successfully.")
+}
+
+func runMigrations() error {
+	entries, err := changeLogFiles.ReadDir("changelog")
 	if err != nil {
-		log.Fatalf("Failed to generate models table: %v", err)
+		return fmt.Errorf("failed to read embedded changelogs: %w", err)
 	}
 
-	_, err = duckdbClient.Exec(`
-        CREATE TABLE IF NOT EXISTS platform_models (
-            platform_id VARCHAR,
-            model_name VARCHAR,
-            cost INTEGER,
-            PRIMARY KEY (platform_id, model_name),
-            FOREIGN KEY (platform_id) REFERENCES platforms(id),
-            FOREIGN KEY (model_name) REFERENCES models(name)
-        );
-    `)
-
-	if err != nil {
-		log.Fatalf("Failed to create platform_models table: %v", err)
+	var files []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			files = append(files, entry.Name())
+		}
 	}
 
-	_, err = duckdbClient.Exec(`
-		CREATE TABLE IF NOT EXISTS transactions (
-            id UUID DEFAULT uuid(),
-			user_id VARCHAR,
-			platform_id VARCHAR,
-			model_name VARCHAR,
-			amount INTEGER,
-			date TIMESTAMP,
-			status VARCHAR,
-			PRIMARY KEY (id),
-			FOREIGN KEY (platform_id) REFERENCES platforms(id),
-			FOREIGN KEY (model_name) REFERENCES models(name)
-		);
-	`)
+	sort.Strings(files)
 
-	if err != nil {
-		log.Fatalf("Failed to create transactions table: %v", err)
+	for i, file := range files {
+		id := i + 1
+
+		contents, err := changeLogFiles.ReadFile(filepath.Join("changelog", file))
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", file, err)
+		}
+
+		checksum := sha256.Sum256(contents)
+		checksumHex := hex.EncodeToString(checksum[:])
+
+		var appliedChecksum string
+		err = duckdbClient.QueryRow("SELECT checksum FROM database_changelog WHERE id = ?", id).Scan(&appliedChecksum)
+		if err == nil {
+			if appliedChecksum != checksumHex {
+				return fmt.Errorf("checksum mismatch for migration %s (id=%d). File has changed", file, id)
+			}
+			log.Printf("Skipping already applied migration %s", file)
+			continue
+		}
+
+		// Run changelogs in a transaction
+		tx, err := duckdbClient.Begin()
+		if err != nil {
+			return fmt.Errorf("failed to begin tx: %w", err)
+		}
+
+		_, err = tx.Exec(string(contents))
+		if err != nil {
+			_ = tx.Rollback()
+			_, _ = duckdbClient.Exec(`
+				INSERT INTO database_changelog (id, name, applied_at, checksum, success) VALUES (?, ?, ?, ?, false)
+			`, id, file, time.Now(), checksumHex)
+			return fmt.Errorf("failed to apply migration %s: %w", file, err)
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			return fmt.Errorf("failed to commit migration %s: %w", file, err)
+		}
+
+		_, err = duckdbClient.Exec(`
+			INSERT INTO database_changelog (id, name, applied_at, checksum, success)
+			VALUES (?, ?, ?, ?, true)
+		`, id, file, time.Now(), checksumHex)
+		if err != nil {
+			return fmt.Errorf("failed to record migration %s: %w", file, err)
+		}
+
+		log.Printf("Applied migration %s", file)
 	}
+
+	return nil
 }
 
 // AddTransaction inserts a new transaction into the database.
@@ -213,20 +257,52 @@ func ListPlatforms() (platforms []Platform, err error) {
 
 // AddPlatform adds a platform
 func AddPlatform(platform Platform) error {
-	_, err := duckdbClient.Exec(`
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
 		INSERT INTO platforms (id, name, buying_power)
 		VALUES (?, ?, ?);
 	`, platform.ID, platform.Name, platform.BuyingPower)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Fetch all models
+	rows, err := tx.Query(`SELECT name FROM models;`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var modelName string
+		if err := rows.Scan(&modelName); err != nil {
+			return err
+		}
+		_, err = tx.Exec(`INSERT INTO platform_models (platform_id, model_name, tokens) VALUES (?, ?, 0);`,
+			platform.ID, modelName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // RemovePlatform remove a platform by id
 func RemovePlatform(id string) error {
-	_, err := duckdbClient.Exec(`DELETE FROM platforms WHERE id = ?;`, id)
+	_, err := duckdbClient.Exec(`
+	DELETE FROM platform_modelss WHERE platform_id = ?;
+	DELETE FROM platforms WHERE id = ?;
+	`, id, id)
 	return err
 }
 
-// GetPlatformModelCost returns the cost of a model for a specific platform.
+// GetPlatformModelCost returns the cost of a model for a specific platform
 func GetPlatformModelCost(platformID, modelName string) (int, error) {
 	row := duckdbClient.QueryRow(`
         SELECT cost FROM platform_models
@@ -238,16 +314,26 @@ func GetPlatformModelCost(platformID, modelName string) (int, error) {
 	return cost, err
 }
 
-// GetPlatformBuyingPower returns the buying power for a platform.
-func GetPlatformBuyingPower(platformID string) (int, error) {
+// GetPlatform returns the buying power for a platform
+func GetPlatform(platformID string) (Platform, error) {
 	row := duckdbClient.QueryRow(`
-        SELECT buying_power FROM platforms
+        SELECT * FROM platforms
         WHERE id = ?;
     `, platformID)
 
-	var buyingPower int
-	err := row.Scan(&buyingPower)
-	return buyingPower, err
+	var id, name string
+	var buying_power int
+
+	err := row.Scan(&id, &name, &buying_power)
+	if err != nil {
+		return Platform{}, err
+	}
+	platform := Platform{
+		ID:          id,
+		Name:        name,
+		BuyingPower: buying_power,
+	}
+	return platform, err
 }
 
 func ListPlatformModels() (models map[string][]ModelCost, err error) {
@@ -281,13 +367,61 @@ func ListPlatformModels() (models map[string][]ModelCost, err error) {
 	return
 }
 
+// SetPlatformModels set the platform model tokens
+func SetPlatformModels(platformID, model string, tokens int) error {
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		INSERT INTO platform_models (platform_id, model_name, tokens)
+		VALUES (?, ?, ?) 
+		ON CONFLICT DO UPDATE SET tokens = EXCLUDED.tokens;
+	`, platformID, model, tokens)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // AddModel adds a model
 func AddModel(model string) error {
-	_, err := duckdbClient.Exec(`
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
 		INSERT INTO models (name)
 		VALUES (?);
 	`, model)
-	return err
+
+	if err != nil {
+		return err
+	}
+	// Fetch all platforms
+	rows, err := tx.Query(`SELECT id FROM platforms;`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var platformID string
+		if err := rows.Scan(&platformID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(`INSERT INTO platform_models (platform_id, model_name, tokens) VALUES (?, ?, 0);`,
+			platformID, model)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // ListModels lists current added models
@@ -310,7 +444,21 @@ func ListModels() (models []string, err error) {
 }
 
 // RemoveModel remove a model by id
-func RemoveModel(id string) error {
-	_, err := duckdbClient.Exec(`DELETE FROM models WHERE id = ?;`, id)
+func RemoveModel(name string) error {
+	_, err := duckdbClient.Exec(`
+	DELETE FROM platform_models WHERE model_name = ?;
+	DELETE FROM models WHERE name = ?;
+	`, name, name)
 	return err
+}
+
+// GetModel returns the model
+func GetModel(name string) (string, error) {
+	row := duckdbClient.QueryRow(`
+        SELECT * FROM models
+        WHERE name = ?;
+    `, name)
+
+	var mn string
+	return name, row.Scan(&mn)
 }

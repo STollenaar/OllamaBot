@@ -79,6 +79,8 @@ func (a AdminCommand) Handler(bot *discordgo.Session, interaction *discordgo.Int
 		components = modelHandler(parsedArguments, bot, interaction)
 	case "ollama":
 		components = ollamaHandler(parsedArguments, bot, interaction)
+	case "platform_model":
+		components = platformModelHandler(parsedArguments, bot, interaction)
 	}
 	_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
 		Components: &components,
@@ -200,6 +202,38 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 					Name:        "list",
 					Description: "List all platforms",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+			},
+		},
+		{
+			Name:        "platform_model",
+			Description: "platform model subcommands",
+			Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "set",
+					Description: "Set a coin platform model settings",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "id",
+							Description: "ID of the platform",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionString,
+							Name:        "name",
+							Description: "Name of the model",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "tokens",
+							Description: "tokens of tokens per coin",
+							Required:    true,
+						},
+					},
 				},
 			},
 		},
@@ -499,7 +533,71 @@ func platformHandler(args *CommandParsed, bot *discordgo.Session, interaction *d
 }
 
 func platformModelHandler(args *CommandParsed, bot *discordgo.Session, interaction *discordgo.InteractionCreate) (components []discordgo.MessageComponent) {
+	platform, err := database.GetPlatform(args.Arguments["id"])
 
+	if err != nil {
+		fmt.Printf("Error fetching platform: %s\n", err)
+		components = []discordgo.MessageComponent{
+			discordgo.TextDisplay{
+				Content: err.Error(),
+			},
+		}
+		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			Components: &components,
+		})
+		if err != nil {
+			fmt.Printf("Error editing the response: %s\n", err)
+		}
+		return
+	}
+
+	model, err := database.GetModel(args.Arguments["name"])
+
+	if err != nil {
+		fmt.Printf("Error fetching model: %s\n", err)
+		components = []discordgo.MessageComponent{
+			discordgo.TextDisplay{
+				Content: err.Error(),
+			},
+		}
+		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			Components: &components,
+		})
+		if err != nil {
+			fmt.Printf("Error editing the response: %s\n", err)
+		}
+		return
+	}
+
+	tokens, _ := strconv.Atoi(args.Arguments["tokens"])
+	err = database.SetPlatformModels(platform.ID, model, tokens)
+	if err != nil {
+		fmt.Printf("Error setting platform_model tokens: %s\n", err)
+		components = []discordgo.MessageComponent{
+			discordgo.TextDisplay{
+				Content: err.Error(),
+			},
+		}
+		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			Components: &components,
+		})
+		if err != nil {
+			fmt.Printf("Error editing the response: %s\n", err)
+		}
+		return
+	}
+
+	components = []discordgo.MessageComponent{
+		discordgo.TextDisplay{
+			Content: "Successfully added the platform",
+		},
+	}
+	_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+		Components: &components,
+	})
+	if err != nil {
+		fmt.Printf("Error editing the response: %s\n", err)
+	}
 	return
 }
 

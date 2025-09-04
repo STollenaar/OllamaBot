@@ -61,6 +61,10 @@ resource "kubernetes_deployment_v1" "ollamabot" {
             name  = "ADMIN_USER_ID"
             value = "134337759446958081"
           }
+          env {
+            name  = "DUCKDB_PATH"
+            value = "/duckdb"
+          }
           port {
             container_port = 8080
             name           = "router"
@@ -79,5 +83,8 @@ resource "kubernetes_deployment_v1" "ollamabot" {
         }
       }
     }
+  }
+  lifecycle {
+    ignore_changes = [spec.0.template.0.spec.0.container.0.image]
   }
 }
