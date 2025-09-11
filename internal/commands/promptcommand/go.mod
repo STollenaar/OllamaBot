@@ -1,11 +1,15 @@
-module github.com/stollenaar/ollamabot/internal/commands/listcommand
+module github.com/stollenaar/ollamabot/internal/commands/promptcommand
 
 go 1.25.0
 
-replace github.com/stollenaar/ollamabot/internal/database => ../../database
+replace (
+	github.com/stollenaar/ollamabot/internal/database => ../../database
+	github.com/stollenaar/ollamabot/internal/util => ../../util
+)
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
+	github.com/ollama/ollama v0.11.10
 	github.com/stollenaar/ollamabot/internal/database v0.0.0-00010101000000-000000000000
 	github.com/stollenaar/ollamabot/internal/util v0.0.0-20250807232131-5c466434f9c2
 )
@@ -37,7 +41,6 @@ require (
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect

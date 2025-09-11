@@ -2,12 +2,11 @@ package listcommand
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	ollamaApi "github.com/ollama/ollama/api"
 	"github.com/stollenaar/ollamabot/internal/database"
+	"github.com/stollenaar/ollamabot/internal/util"
 )
 
 var (
@@ -15,7 +14,6 @@ var (
 		Name:        "list",
 		Description: "List command to see what models are available",
 	}
-	OllamaClient *ollamaApi.Client
 )
 
 type ListCommand struct {
@@ -29,19 +27,11 @@ type CommandParsed struct {
 	Arguments  map[string]string
 }
 
-func init() {
-	client, err := ollamaApi.ClientFromEnvironment()
-	if err != nil {
-		log.Fatal(err)
-	}
-	OllamaClient = client
-}
-
 func (l ListCommand) Handler(bot *discordgo.Session, interaction *discordgo.InteractionCreate) {
 	err := bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
+			Flags: util.ConfigFile.SetEphemeral() | discordgo.MessageFlagsIsComponentsV2,
 			Title: "tmp",
 			Components: []discordgo.MessageComponent{
 				discordgo.TextDisplay{
@@ -69,13 +59,16 @@ func (l ListCommand) Handler(bot *discordgo.Session, interaction *discordgo.Inte
 		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
 			Components: &components,
 		})
+		if err != nil {
+			fmt.Println(err)
+		}
 		return
 	}
 
 	for model, platforms := range models {
 		var costs []string
 		for _, platform := range platforms {
-			costs = append(costs, fmt.Sprintf("### Platform: %s\n### Cost: %d/token", platform.PlatformName, platform.Cost))
+			costs = append(costs, fmt.Sprintf("### Platform: %s\n### Cost: %d/token", platform.PlatformName, platform.Tokens))
 		}
 		container := discordgo.Container{
 			Components: []discordgo.MessageComponent{
@@ -91,7 +84,7 @@ func (l ListCommand) Handler(bot *discordgo.Session, interaction *discordgo.Inte
 		container := discordgo.Container{
 			Components: []discordgo.MessageComponent{
 				discordgo.TextDisplay{
-					Content: fmt.Sprintf("No models are available at the moment"),
+					Content: "No models are available at the moment",
 				},
 			},
 		}

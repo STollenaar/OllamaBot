@@ -6,6 +6,7 @@ replace (
 	github.com/stollenaar/ollamabot/internal/commands => ../internal/commands
 	github.com/stollenaar/ollamabot/internal/commands/admincommand => ../internal/commands/admincommand
 	github.com/stollenaar/ollamabot/internal/commands/listcommand => ../internal/commands/listcommand
+	github.com/stollenaar/ollamabot/internal/commands/promptcommand => ./promptcommand
 	github.com/stollenaar/ollamabot/internal/database => ../internal/database
 	github.com/stollenaar/ollamabot/internal/routes => ../internal/routes
 	github.com/stollenaar/ollamabot/internal/util => ../internal/util
@@ -87,7 +88,7 @@ require (
 	github.com/stollenaar/aws-rotating-credentials-provider/credentials v0.0.0-20250330204128-299effe6093c // indirect
 	github.com/stollenaar/ollamabot/internal/commands/admincommand v0.0.0-00010101000000-000000000000 // indirect
 	github.com/stollenaar/ollamabot/internal/commands/listcommand v0.0.0-00010101000000-000000000000 // indirect
-	github.com/stollenaar/ollamabot/internal/database v0.0.0-00010101000000-000000000000 // indirect
+	github.com/stollenaar/ollamabot/internal/database v0.0.0-20250904220209-b76a681cc48a // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/gin-swagger v1.6.0 // indirect

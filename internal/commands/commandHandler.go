@@ -6,6 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/stollenaar/ollamabot/internal/commands/admincommand"
 	"github.com/stollenaar/ollamabot/internal/commands/listcommand"
+	"github.com/stollenaar/ollamabot/internal/commands/promptcommand"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
 
@@ -19,6 +20,7 @@ var (
 	Commands = []CommandI{
 		admincommand.AdminCmd,
 		listcommand.ListCmd,
+		promptcommand.PromptCmd,
 	}
 	ApplicationCommands []*discordgo.ApplicationCommand
 	CommandHandlers     = make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))

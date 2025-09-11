@@ -41,7 +41,7 @@ type Transaction struct {
 
 type ModelCost struct {
 	PlatformName string
-	Cost         int
+	Tokens       int
 }
 
 // Platform represents a platform with buying power
@@ -67,8 +67,6 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	defer duckdbClient.Close()
 
 	// Ensure changelog table exists
 	_, err = duckdbClient.Exec(`
@@ -340,7 +338,7 @@ func ListPlatformModels() (models map[string][]ModelCost, err error) {
 	models = make(map[string][]ModelCost)
 
 	rows, err := duckdbClient.Query(`
-	 SELECT pm.model_name, pm.cost, p.name AS platform_name
+	 SELECT pm.model_name, p.name AS platform_name, pm.tokens
 	 FROM platform_models AS pm
 	 JOIN platforms AS p
 	 ON pm.platform_id = p.id;
@@ -352,12 +350,12 @@ func ListPlatformModels() (models map[string][]ModelCost, err error) {
 
 	for rows.Next() {
 		var platform_name, model_name string
-		var cost int
+		var tokens int
 
-		err = rows.Scan(&platform_name, &model_name, &cost)
+		err = rows.Scan(&platform_name, &model_name, &tokens)
 		models[model_name] = append(models[model_name], ModelCost{
 			PlatformName: platform_name,
-			Cost:         cost,
+			Tokens:       tokens,
 		})
 		if err != nil {
 			break

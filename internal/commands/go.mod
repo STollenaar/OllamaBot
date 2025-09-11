@@ -73,6 +73,7 @@ require (
 replace (
 	github.com/stollenaar/ollamabot/internal/commands/admincommand => ./admincommand
 	github.com/stollenaar/ollamabot/internal/commands/listcommand => ./listcommand
+	github.com/stollenaar/ollamabot/internal/commands/prompt => ./promptcommand
 	github.com/stollenaar/ollamabot/internal/database => ../database
 	github.com/stollenaar/ollamabot/internal/util => ../util
 )
