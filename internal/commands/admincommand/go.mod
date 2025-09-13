@@ -3,7 +3,7 @@ module github.com/stollenaar/ollamabot/internal/commands/admincommand
 go 1.25.0
 
 require (
-	github.com/bwmarrin/discordgo v0.29.0
+	github.com/disgoorg/disgo v0.18.16
 	github.com/ollama/ollama v0.11.4
 	github.com/stollenaar/ollamabot/internal/database v0.0.0-20250904220209-b76a681cc48a
 	github.com/stollenaar/ollamabot/internal/util v0.0.0-20250807232131-5c466434f9c2
@@ -25,6 +25,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.31.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.35.1 // indirect
 	github.com/aws/smithy-go v1.22.5 // indirect
+	github.com/disgoorg/json v1.2.0 // indirect
+	github.com/disgoorg/snowflake/v2 v2.0.3 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.1.17 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-amd64 v0.1.12 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-arm64 v0.1.12 // indirect
@@ -47,6 +49,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
+	github.com/sasha-s/go-csync v0.0.0-20240107134140-fcbab37b09ad // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.8.0 // indirect

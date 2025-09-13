@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -8,114 +9,91 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo"
+	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/gateway"
+	"github.com/disgoorg/disgo/handler"
+	"github.com/disgoorg/snowflake/v2"
 	"github.com/stollenaar/ollamabot/internal/commands"
 	"github.com/stollenaar/ollamabot/internal/routes"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
 
 var (
-	bot *discordgo.Session
+	client *bot.Client
 
-	GuildID        = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
-	Debug          = flag.Bool("debug", false, "Run in debug mode")
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
-	PurgeCommands  = flag.Bool("purgecmd", false, "Remove all loaded commands")
+	GuildID       = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
+	Debug         = flag.Bool("debug", false, "Run in debug mode")
+	PurgeCommands = flag.Bool("purgecmd", false, "Remove all loaded commands")
 )
 
 func init() {
 	flag.Parse()
 
-	bot, _ = discordgo.New("Bot " + util.GetDiscordToken())
+	c, err := disgo.New(util.GetDiscordToken(),
+		bot.WithGatewayConfigOpts(gateway.WithIntents(gateway.IntentsNone)),
+		bot.WithEventListenerFunc(func(event *events.ApplicationCommandInteractionCreate) {
+			data := event.SlashCommandInteractionData()
+			commands.CommandHandlers[data.CommandName()](event)
+		}),
+		bot.WithEventListenerFunc(func(event *events.ModalSubmitInteractionCreate) {
+			commands.ModalSubmitHandlers[event.Data.CustomID](event)
+		}),
+	)
 
-	bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		switch i.Type {
-		case discordgo.InteractionMessageComponent:
-			if h, ok := commands.CommandHandlers[i.Interaction.Message.Interaction.Name]; ok {
-				h(s, i)
-			}
-		case discordgo.InteractionType(discordgo.InteractionModalSubmit):
-			if h, ok := commands.ModalSubmitHandlers[i.Interaction.Message.Interaction.Name]; ok {
-				h(s, i)
-			}
-		default:
-			if h, ok := commands.CommandHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
-			}
-		}
-	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	client = c
 	util.ConfigFile.DEBUG = *Debug
 }
 
 func main() {
-	bot.Identify.Intents = discordgo.Intent(discordgo.IntentsNone)
 
-	err := bot.Open()
-	if err != nil {
-		log.Fatal("Error starting bot ", err)
+	defer client.Close(context.TODO())
+	var guilds []snowflake.ID
+	if sn, err := snowflake.Parse(*GuildID); err == nil {
+		guilds = append(guilds, sn)
 	}
 
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands.ApplicationCommands))
-	bCommands, err := bot.ApplicationCommands(bot.State.User.ID, *GuildID)
-	if err != nil {
-		log.Printf("Error fetching registered commands: %e", err)
-	}
 	if *PurgeCommands {
-		for _, cmd := range bCommands {
-			err := bot.ApplicationCommandDelete(bot.State.User.ID, *GuildID, cmd.ID)
-			if err != nil {
-				log.Printf("Cannot delete '%v' command: %v\n", cmd.Name, err)
+		if GuildID != nil {
+			cmds, _ := client.Rest.GetGuildCommands(client.ApplicationID, guilds[0], false)
+			for _, cmd := range cmds {
+				err := client.Rest.DeleteGuildCommand(cmd.ApplicationID(), *cmd.GuildID(), cmd.ID())
+				if err != nil {
+					log.Printf("Cannot delete '%v' command: %v\n", cmd.Name, err)
+				}
 			}
+		} else {
+			cmds, _ := client.Rest.GetGlobalCommands(client.ApplicationID, false)
+			for _, cmd := range cmds {
+				err := client.Rest.DeleteGlobalCommand(cmd.ApplicationID(), cmd.ID())
+				if err != nil {
+					log.Printf("Cannot delete '%v' command: %v\n", cmd.Name, err)
+				}
+			}
+
 		}
 		return
 	}
-	
+
 	log.Println("Adding commands...")
-	for i, v := range commands.ApplicationCommands {
-		if cmd := containsCommand(v, bCommands); cmd != nil && optionsEqual(v, cmd) {
-			registeredCommands[i] = cmd
-			continue
-		}
-		var cmd *discordgo.ApplicationCommand
-		var err error
+	if err := handler.SyncCommands(client, commands.ApplicationCommands, guilds); err != nil {
+		log.Fatal("error while registering commands: ", err)
+	}
 
-		if v.GuildID != "" {
-			cmd, err = bot.ApplicationCommandCreate(bot.State.User.ID, v.GuildID, v)
-		} else {
-			cmd, err = bot.ApplicationCommandCreate(bot.State.User.ID, *GuildID, v)
-		}
-
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		registeredCommands[i] = cmd
+	if err := client.OpenGateway(context.TODO()); err != nil {
+		log.Fatal("error while connecting to gateway: ", err)
 	}
 	log.Println("Bot started")
 
-	defer bot.Close()
 	go routes.CreateRouter()
 
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
-
-	if *RemoveCommands {
-		log.Println("Removing commands...")
-		// We need to fetch the commands, since deleting requires the command ID.
-		// We are doing this from the returned commands on line 375, because using
-		// this will delete all the commands, which might not be desirable, so we
-		// are deleting only the commands that we added.
-		// registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
-		// if err != nil {
-		// 	log.Fatalf("Could not fetch registered commands: %v", err)
-		// }
-
-		for _, v := range registeredCommands {
-			err := bot.ApplicationCommandDelete(bot.State.User.ID, *GuildID, v.ID)
-			if err != nil {
-				log.Printf("Cannot delete '%v' command: %v\n", v.Name, err)
-			}
-		}
-	}
 }
 
 func containsCommand(cmd *discordgo.ApplicationCommand, commands []*discordgo.ApplicationCommand) *discordgo.ApplicationCommand {

@@ -3,11 +3,13 @@ package promptcommand
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log"
 	"maps"
 	"slices"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 	ollamaApi "github.com/ollama/ollama/api"
 	"github.com/stollenaar/ollamabot/internal/database"
 	"github.com/stollenaar/ollamabot/internal/util"
@@ -26,12 +28,6 @@ type PromptCommand struct {
 	Description string
 }
 
-// CommandParsed parsed struct for count command
-type CommandParsed struct {
-	SubCommand string
-	Arguments  map[string]string
-}
-
 func init() {
 	client, err := ollamaApi.ClientFromEnvironment()
 	if err != nil {
@@ -40,20 +36,17 @@ func init() {
 	OllamaClient = client
 }
 
-func (p PromptCommand) Handler(bot *discordgo.Session, interaction *discordgo.InteractionCreate) {
+func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
 	models, err := database.ListPlatformModels()
 
 	if err != nil {
 		fmt.Printf("Error fetching models: %e\n", err)
-		err := bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: util.ConfigFile.SetEphemeral() | discordgo.MessageFlagsIsComponentsV2,
-				Title: "tmp",
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
-						Content: "error fetching models",
-					},
+
+		err := event.CreateMessage(discord.MessageCreate{
+			Flags: util.ConfigFile.SetEphemeral() | discord.MessageFlagIsComponentsV2,
+			Components: []discord.LayoutComponent{
+				discord.TextDisplayComponent{
+					Content: "error fetching models",
 				},
 			},
 		})
@@ -64,31 +57,23 @@ func (p PromptCommand) Handler(bot *discordgo.Session, interaction *discordgo.In
 		return
 	}
 
-	err = bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseModal,
-		Data: &discordgo.InteractionResponseData{
-			CustomID: "prompt",
-			Title:    "Submit Prompt",
-			Flags:    discordgo.MessageFlagsIsComponentsV2,
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.SelectMenu{
-							CustomID: "model",
-							MenuType: discordgo.StringSelectMenu,
-							Options:  modelsToOptions(slices.Collect(maps.Keys(models))),
-						},
-					},
+	err = event.Modal(discord.ModalCreate{
+		CustomID: "prompt",
+		Title:    "Submit Prompt",
+		Components: []discord.LayoutComponent{
+			discord.LabelComponent{
+				Label: "Select Model",
+				Component: discord.StringSelectMenuComponent{
+					CustomID: "model",
+					Options:  modelsToOptions(slices.Collect(maps.Keys(models))),
 				},
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID: "prompt",
-							Label:    "Prompt",
-							Style:    discordgo.TextInputParagraph,
-							Required: true,
-						},
-					},
+			},
+			discord.LabelComponent{
+				Label: "Prompt",
+				Component: discord.TextInputComponent{
+					CustomID: "prompt",
+					Style:    discord.TextInputStyleParagraph,
+					Required: true,
 				},
 			},
 		},
@@ -98,58 +83,42 @@ func (p PromptCommand) Handler(bot *discordgo.Session, interaction *discordgo.In
 	}
 }
 
-func (p PromptCommand) ModalHandler(bot *discordgo.Session, interaction *discordgo.InteractionCreate) {
-	err := bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   util.ConfigFile.SetEphemeral(),
-			Content: "Loading...",
-		},
-	})
+func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) {
+	err := event.DeferCreateMessage(util.ConfigFile.SetEphemeral() == discord.MessageFlagEphemeral)
 
 	if err != nil {
 		fmt.Printf("Error deferring: %s\n", err)
 		return
 	}
 
-	submittedData := extractModalSubmitData(interaction.ModalSubmitData().Components)
+	submittedData := extractModalSubmitData(event.Data.AllComponents())
 
 	OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
 		Model:  submittedData["model"],
 		Prompt: submittedData["prompt"],
+		Stream: new(bool),
 	}, func(gr ollamaApi.GenerateResponse) error {
-		bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 			Content: &gr.Response,
 		})
-		return nil
+		if err != nil {
+			fmt.Printf("Error updating prompt: %s\n", err)
+		}
+		return err
 	})
 }
 
-func (p PromptCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOption {
-	return nil
-	// return []*discordgo.ApplicationCommandOption{
-	// 	{
-	// 		Name:        "name",
-	// 		Description: "Name of the model",
-	// 		Type:        discordgo.ApplicationCommandOptionString,
-	// 		Required:    true,
-	// 	},
-	// 	{
-	// 		Name:        "prompt",
-	// 		Description: "prompt you want to send",
-	// 		Type:        discordgo.ApplicationCommandOptionString,
-	// 		Required:    true,
-	// 	},
-	// }
-}
-
-func (p PromptCommand) ParseArguments(bot *discordgo.Session, interaction *discordgo.InteractionCreate) interface{} {
+func (p PromptCommand) CreateCommandArguments() []discord.ApplicationCommandOption {
 	return nil
 }
 
-func modelsToOptions(models []string) (options []discordgo.SelectMenuOption) {
+func (p PromptCommand) ParseArguments(event *events.ApplicationCommandInteractionCreate) interface{} {
+	return nil
+}
+
+func modelsToOptions(models []string) (options []discord.StringSelectMenuOption) {
 	for _, model := range models {
-		options = append(options, discordgo.SelectMenuOption{
+		options = append(options, discord.StringSelectMenuOption{
 			Label: model,
 			Value: model,
 		})
@@ -157,11 +126,15 @@ func modelsToOptions(models []string) (options []discordgo.SelectMenuOption) {
 	return
 }
 
-func extractModalSubmitData(components []discordgo.MessageComponent) map[string]string {
+func extractModalSubmitData(components iter.Seq[discord.Component]) map[string]string {
 	formData := make(map[string]string)
-	for _, component := range components {
-		input := component.(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput)
-		formData[input.CustomID] = input.Value
+	for component := range components {
+		switch c := component.(type) {
+		case discord.TextInputComponent:
+			formData[c.CustomID] = c.Value
+		case discord.StringSelectMenuComponent:
+			formData[c.CustomID] = c.Values[0]
+		}
 	}
 	return formData
 }

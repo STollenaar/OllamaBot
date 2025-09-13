@@ -5,7 +5,7 @@ go 1.25.0
 replace github.com/stollenaar/ollamabot/internal/database => ../../database
 
 require (
-	github.com/bwmarrin/discordgo v0.29.0
+	github.com/disgoorg/disgo v0.19.0-rc.5.0.20250911220743-948015d8f661
 	github.com/stollenaar/ollamabot/internal/database v0.0.0-00010101000000-000000000000
 	github.com/stollenaar/ollamabot/internal/util v0.0.0-20250807232131-5c466434f9c2
 )
@@ -26,6 +26,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.31.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.35.1 // indirect
 	github.com/aws/smithy-go v1.22.5 // indirect
+	github.com/bwmarrin/discordgo v0.29.0 // indirect
+	github.com/disgoorg/json/v2 v2.0.0 // indirect
+	github.com/disgoorg/omit v1.0.0 // indirect
+	github.com/disgoorg/snowflake/v2 v2.0.3 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.1.17 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-amd64 v0.1.12 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-arm64 v0.1.12 // indirect
@@ -49,6 +53,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
+	github.com/sasha-s/go-csync v0.0.0-20240107134140-fcbab37b09ad // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.8.0 // indirect
@@ -58,7 +63,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
+	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect

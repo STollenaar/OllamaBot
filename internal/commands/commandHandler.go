@@ -3,7 +3,8 @@ package commands
 import (
 	"reflect"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 	"github.com/stollenaar/ollamabot/internal/commands/admincommand"
 	"github.com/stollenaar/ollamabot/internal/commands/listcommand"
 	"github.com/stollenaar/ollamabot/internal/commands/promptcommand"
@@ -11,9 +12,8 @@ import (
 )
 
 type CommandI interface {
-	Handler(bot *discordgo.Session, interaction *discordgo.InteractionCreate)
-	CreateCommandArguments() []*discordgo.ApplicationCommandOption
-	ParseArguments(bot *discordgo.Session, interaction *discordgo.InteractionCreate) interface{}
+	Handler(e *events.ApplicationCommandInteractionCreate)
+	CreateCommandArguments() []discord.ApplicationCommandOption
 }
 
 var (
@@ -22,14 +22,14 @@ var (
 		listcommand.ListCmd,
 		promptcommand.PromptCmd,
 	}
-	ApplicationCommands []*discordgo.ApplicationCommand
-	CommandHandlers     = make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))
-	ModalSubmitHandlers = make(map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate))
+	ApplicationCommands []discord.ApplicationCommandCreate
+	CommandHandlers     = make(map[string]func(e *events.ApplicationCommandInteractionCreate))
+	ModalSubmitHandlers = make(map[string]func(e *events.ModalSubmitInteractionCreate))
 )
 
 func init() {
 	for _, cmd := range Commands {
-		ApplicationCommands = append(ApplicationCommands, &discordgo.ApplicationCommand{
+		ApplicationCommands = append(ApplicationCommands, discord.SlashCommandCreate{
 			Name:        reflect.ValueOf(cmd).FieldByName("Name").String(),
 			Description: reflect.ValueOf(cmd).FieldByName("Description").String(),
 			Options:     cmd.CreateCommandArguments(),
@@ -37,17 +37,16 @@ func init() {
 		CommandHandlers[reflect.ValueOf(cmd).FieldByName("Name").String()] = cmd.Handler
 
 		if _, ok := reflect.TypeOf(cmd).MethodByName("ModalHandler"); ok {
-			ModalSubmitHandlers[reflect.ValueOf(cmd).FieldByName("Name").String()] = func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			ModalSubmitHandlers[reflect.ValueOf(cmd).FieldByName("Name").String()] = func(e *events.ModalSubmitInteractionCreate) {
 				reflect.ValueOf(cmd).MethodByName("ModalHandler").Call([]reflect.Value{
-					reflect.ValueOf(s),
-					reflect.ValueOf(i),
+					reflect.ValueOf(e),
 				})
 			}
 		}
 	}
 
 	ApplicationCommands = append(ApplicationCommands,
-		&discordgo.ApplicationCommand{
+		discord.SlashCommandCreate{
 			Name:        "ping",
 			Description: "pong",
 		},
@@ -57,12 +56,9 @@ func init() {
 }
 
 // PingCommand sends back the pong
-func PingCommand(bot *discordgo.Session, interaction *discordgo.InteractionCreate) {
-	bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Pong",
-			Flags:   util.ConfigFile.SetEphemeral(),
-		},
+func PingCommand(event *events.ApplicationCommandInteractionCreate) {
+	event.CreateMessage(discord.MessageCreate{
+		Content: "Pong",
+		Flags:   util.ConfigFile.SetEphemeral(),
 	})
 }

@@ -352,7 +352,7 @@ func ListPlatformModels() (models map[string][]ModelCost, err error) {
 		var platform_name, model_name string
 		var tokens int
 
-		err = rows.Scan(&platform_name, &model_name, &tokens)
+		err = rows.Scan(&model_name, &platform_name, &tokens)
 		models[model_name] = append(models[model_name], ModelCost{
 			PlatformName: platform_name,
 			Tokens:       tokens,

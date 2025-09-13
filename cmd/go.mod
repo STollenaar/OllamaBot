@@ -6,7 +6,7 @@ replace (
 	github.com/stollenaar/ollamabot/internal/commands => ../internal/commands
 	github.com/stollenaar/ollamabot/internal/commands/admincommand => ../internal/commands/admincommand
 	github.com/stollenaar/ollamabot/internal/commands/listcommand => ../internal/commands/listcommand
-	github.com/stollenaar/ollamabot/internal/commands/promptcommand => ./promptcommand
+	github.com/stollenaar/ollamabot/internal/commands/promptcommand => ../internal/commands/promptcommand
 	github.com/stollenaar/ollamabot/internal/database => ../internal/database
 	github.com/stollenaar/ollamabot/internal/routes => ../internal/routes
 	github.com/stollenaar/ollamabot/internal/util => ../internal/util
@@ -14,6 +14,8 @@ replace (
 
 require (
 	github.com/bwmarrin/discordgo v0.29.0
+	github.com/disgoorg/disgo v0.19.0-rc.5.0.20250911220743-948015d8f661
+	github.com/disgoorg/snowflake/v2 v2.0.3
 	github.com/stollenaar/ollamabot/internal/commands v0.0.0-00010101000000-000000000000
 	github.com/stollenaar/ollamabot/internal/routes v0.0.0-00010101000000-000000000000
 	github.com/stollenaar/ollamabot/internal/util v0.0.0-20250807232131-5c466434f9c2
@@ -40,6 +42,8 @@ require (
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
+	github.com/disgoorg/json/v2 v2.0.0 // indirect
+	github.com/disgoorg/omit v1.0.0 // indirect
 	github.com/duckdb/duckdb-go-bindings v0.1.17 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-amd64 v0.1.12 // indirect
 	github.com/duckdb/duckdb-go-bindings/darwin-arm64 v0.1.12 // indirect
@@ -76,10 +80,11 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/ollama/ollama v0.11.4 // indirect
+	github.com/ollama/ollama v0.11.10 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/sagikazarmark/locafero v0.9.0 // indirect
+	github.com/sasha-s/go-csync v0.0.0-20240107134140-fcbab37b09ad // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.8.0 // indirect
@@ -88,6 +93,7 @@ require (
 	github.com/stollenaar/aws-rotating-credentials-provider/credentials v0.0.0-20250330204128-299effe6093c // indirect
 	github.com/stollenaar/ollamabot/internal/commands/admincommand v0.0.0-00010101000000-000000000000 // indirect
 	github.com/stollenaar/ollamabot/internal/commands/listcommand v0.0.0-00010101000000-000000000000 // indirect
+	github.com/stollenaar/ollamabot/internal/commands/promptcommand v0.0.0-00010101000000-000000000000 // indirect
 	github.com/stollenaar/ollamabot/internal/database v0.0.0-20250904220209-b76a681cc48a // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect

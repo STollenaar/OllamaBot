@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strconv"
 
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 	ollamaApi "github.com/ollama/ollama/api"
 	"github.com/stollenaar/ollamabot/internal/database"
 	"github.com/stollenaar/ollamabot/internal/util"
@@ -25,13 +25,6 @@ type AdminCommand struct {
 	Description string
 }
 
-// CommandParsed parsed struct for count command
-type CommandParsed struct {
-	SubCommandGroup string
-	SubCommand      string
-	Arguments       map[string]string
-}
-
 func init() {
 	client, err := ollamaApi.ClientFromEnvironment()
 	if err != nil {
@@ -40,75 +33,58 @@ func init() {
 	OllamaClient = client
 }
 
-func (a AdminCommand) Handler(bot *discordgo.Session, interaction *discordgo.InteractionCreate) {
-	if interaction.Member.User.ID != util.ConfigFile.ADMIN_USER_ID {
-		bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You are not the boss of me",
-				Flags:   discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-			},
+func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
+	if event.Member().User.ID.String() != util.ConfigFile.ADMIN_USER_ID {
+		event.CreateMessage(discord.MessageCreate{
+			Content: "You are not the boss of me",
+			Flags:   discord.MessageFlagEphemeral | discord.MessageFlagIsComponentsV2,
 		})
 		return
 	}
-	err := bot.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral | discordgo.MessageFlagsIsComponentsV2,
-			Title: "tmp",
-			Components: []discordgo.MessageComponent{
-				discordgo.TextDisplay{
-					Content: "loading",
-				},
-			},
-		},
-	})
+	err := event.DeferCreateMessage(true)
 
 	if err != nil {
 		fmt.Printf("Error deferring: %s\n", err)
 		return
 	}
 
-	parsedArguments := a.ParseArguments(bot, interaction).(*CommandParsed)
+	sub := event.SlashCommandInteractionData()
 
-	var components []discordgo.MessageComponent
-	switch parsedArguments.SubCommandGroup {
+	var components []discord.LayoutComponent
+	switch *sub.SubCommandGroupName {
 	case "platform":
-		components = platformHandler(parsedArguments, bot, interaction)
+		components = platformHandler(sub, event)
 	case "model":
-		components = modelHandler(parsedArguments, bot, interaction)
+		components = modelHandler(sub, event)
 	case "ollama":
-		components = ollamaHandler(parsedArguments, bot, interaction)
+		components = ollamaHandler(sub, event)
 	case "platform_model":
-		components = platformModelHandler(parsedArguments, bot, interaction)
+		components = platformModelHandler(sub, event)
 	}
-	_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 		Components: &components,
+		Flags:      util.ConfigFile.SetComponentV2Flags(),
 	})
 	if err != nil {
 		fmt.Printf("Error editing the response: %s\n", err)
 	}
 }
 
-func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOption {
-	return []*discordgo.ApplicationCommandOption{
-		{
+func (a AdminCommand) CreateCommandArguments() []discord.ApplicationCommandOption {
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionSubCommandGroup{
 			Name:        "ollama",
 			Description: "ollama subcommands",
-			Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-			Options: []*discordgo.ApplicationCommandOption{
+			Options: []discord.ApplicationCommandOptionSubCommand{
 				{
 					Name:        "list",
 					Description: "Lists Current pulled models",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
 					Name:        "pull",
 					Description: "Downloads a model to use",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
 							Name:        "model",
 							Description: "Model to pull to use",
 							Required:    true,
@@ -117,23 +93,19 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 				},
 			},
 		},
-		{
+		discord.ApplicationCommandOptionSubCommandGroup{
 			Name:        "model",
 			Description: "model subcommands",
-			Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-			Options: []*discordgo.ApplicationCommandOption{
+			Options: []discord.ApplicationCommandOptionSubCommand{
 				{
 					Name:        "list",
 					Description: "Lists Current loaded models",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
 					Name:        "add",
 					Description: "Add a model to use with the bot",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
 							Name:        "model",
 							Description: "Model to add",
 							Required:    true,
@@ -143,10 +115,8 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 				{
 					Name:        "remove",
 					Description: "Remove a llm model",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
 							Name:        "name",
 							Description: "Name of the model",
 							Required:    true,
@@ -155,30 +125,25 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 				},
 			},
 		},
-		{
+		discord.ApplicationCommandOptionSubCommandGroup{
 			Name:        "platform",
 			Description: "platform subcommands",
-			Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-			Options: []*discordgo.ApplicationCommandOption{
+			Options: []discord.ApplicationCommandOptionSubCommand{
 				{
 					Name:        "add",
 					Description: "Add a coin platform",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
 							Name:        "id",
 							Description: "ID of the platform",
 							Required:    true,
 						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+						discord.ApplicationCommandOptionString{
 							Name:        "name",
 							Description: "Name of the platform",
 							Required:    true,
 						},
-						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
+						discord.ApplicationCommandOptionString{
 							Name:        "buying_power",
 							Description: "Buying power of the platform",
 							Required:    true,
@@ -188,10 +153,8 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 				{
 					Name:        "remove",
 					Description: "Remove a coin platform",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
 							Name:        "id",
 							Description: "ID of the platform",
 							Required:    true,
@@ -201,34 +164,28 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 				{
 					Name:        "list",
 					Description: "List all platforms",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 			},
 		},
-		{
+		discord.ApplicationCommandOptionSubCommandGroup{
 			Name:        "platform_model",
 			Description: "platform model subcommands",
-			Type:        discordgo.ApplicationCommandOptionSubCommandGroup,
-			Options: []*discordgo.ApplicationCommandOption{
+			Options: []discord.ApplicationCommandOptionSubCommand{
 				{
 					Name:        "set",
 					Description: "Set a coin platform model settings",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
 							Name:        "id",
 							Description: "ID of the platform",
 							Required:    true,
 						},
-						{
-							Type:        discordgo.ApplicationCommandOptionString,
+						discord.ApplicationCommandOptionString{
 							Name:        "name",
 							Description: "Name of the model",
 							Required:    true,
 						},
-						{
-							Type:        discordgo.ApplicationCommandOptionInteger,
+						discord.ApplicationCommandOptionInt{
 							Name:        "tokens",
 							Description: "tokens of tokens per coin",
 							Required:    true,
@@ -240,66 +197,32 @@ func (a AdminCommand) CreateCommandArguments() []*discordgo.ApplicationCommandOp
 	}
 }
 
-func (a AdminCommand) ParseArguments(bot *discordgo.Session, interaction *discordgo.InteractionCreate) interface{} {
-	parsedArguments := new(CommandParsed)
-	parsedArguments.Arguments = map[string]string{}
-
-	// Access options in the order provided by the user.
-	options := interaction.ApplicationCommandData().Options
-	// parsedArguments.GuildID = interaction.GuildID
-	// Or convert the slice into a map
-	optionMap := make(map[string]*discordgo.ApplicationCommandInteractionDataOption, len(options))
-	for _, opt := range options {
-		switch opt.Type {
-		case discordgo.ApplicationCommandOptionSubCommand:
-			parsedArguments.SubCommand = opt.Name
-			for _, option := range opt.Options {
-				parsedArguments.Arguments[option.Name] = option.StringValue()
-			}
-		case discordgo.ApplicationCommandOptionSubCommandGroup:
-			parsedArguments.SubCommandGroup = opt.Name
-			parsedArguments.SubCommand = opt.Options[0].Name
-			for _, sub := range opt.Options[0].Options {
-				switch sub.Type {
-				case discordgo.ApplicationCommandOptionInteger:
-					parsedArguments.Arguments[sub.Name] = strconv.FormatInt(sub.IntValue(), 10)
-				default:
-					parsedArguments.Arguments[sub.Name] = sub.StringValue()
-				}
-			}
-		default:
-			optionMap[opt.Name] = opt
-		}
-	}
-
-	return parsedArguments
-}
-
-func ollamaHandler(args *CommandParsed, bot *discordgo.Session, interaction *discordgo.InteractionCreate) (components []discordgo.MessageComponent) {
-	switch args.SubCommand {
+func ollamaHandler(args discord.SlashCommandInteractionData, event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	switch *args.SubCommandName {
 	case "pull":
 		err := OllamaClient.Pull(context.TODO(), &ollamaApi.PullRequest{
-			Model: args.Arguments["model"],
+			Model: args.Options["model"].String(),
 		}, func(pr ollamaApi.ProgressResponse) error {
 			return nil
 		})
 		if err != nil {
 			fmt.Printf("Error pulling model: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
 			}
 			return
 		} else {
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: "Pulled model",
 				},
 			}
@@ -312,9 +235,9 @@ func ollamaHandler(args *CommandParsed, bot *discordgo.Session, interaction *dis
 		}
 
 		for _, model := range resp.Models {
-			container := discordgo.Container{
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
+			container := discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
 						Content: fmt.Sprintf("### Name: %s", model.Name),
 					},
 				},
@@ -325,10 +248,10 @@ func ollamaHandler(args *CommandParsed, bot *discordgo.Session, interaction *dis
 	return
 }
 
-func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *discordgo.InteractionCreate) (components []discordgo.MessageComponent) {
-	switch args.SubCommand {
+func modelHandler(args discord.SlashCommandInteractionData, event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	switch *args.SubCommandName {
 	case "add":
-		model := args.Arguments["model"]
+		model := args.Options["model"].String()
 
 		resp, err := OllamaClient.List(context.TODO())
 		if err != nil {
@@ -336,8 +259,8 @@ func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *disc
 			return
 		}
 		if !containsModel(model, resp.Models) {
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: fmt.Sprintf("Model %s is not already in Ollama", model),
 				},
 			}
@@ -347,25 +270,27 @@ func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *disc
 		err = database.AddModel(model)
 		if err != nil {
 			fmt.Printf("Error creating model: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
 			}
 		} else {
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: "Successfully added the model",
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
@@ -376,13 +301,14 @@ func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *disc
 
 		if err != nil {
 			fmt.Printf("Error listing platforms: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
@@ -392,9 +318,9 @@ func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *disc
 		}
 
 		for _, model := range models {
-			container := discordgo.Container{
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
+			container := discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
 						Content: fmt.Sprintf("### Name: %s", model),
 					},
 				},
@@ -402,28 +328,30 @@ func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *disc
 			components = append(components, container)
 		}
 	case "remove":
-		err := database.RemoveModel(args.Arguments["name"])
+		err := database.RemoveModel(args.Options["name"].String())
 		if err != nil {
 			fmt.Printf("Error removing model: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
 			}
 		} else {
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: "Successfully removed the model",
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
@@ -433,37 +361,39 @@ func modelHandler(args *CommandParsed, bot *discordgo.Session, interaction *disc
 	return
 }
 
-func platformHandler(args *CommandParsed, bot *discordgo.Session, interaction *discordgo.InteractionCreate) (components []discordgo.MessageComponent) {
-	switch args.SubCommand {
+func platformHandler(args discord.SlashCommandInteractionData, event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	switch *args.SubCommandName {
 	case "add":
-		bpwr, _ := strconv.Atoi(args.Arguments["buying_power"])
+
 		platform := database.Platform{
-			ID:          args.Arguments["id"],
-			Name:        args.Arguments["name"],
-			BuyingPower: bpwr,
+			ID:          args.Options["id"].String(),
+			Name:        args.Options["name"].String(),
+			BuyingPower: args.Options["buying_power"].Int(),
 		}
 		err := database.AddPlatform(platform)
 		if err != nil {
 			fmt.Printf("Error creating platform: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
 			}
 		} else {
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: "Successfully added the platform",
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
@@ -474,13 +404,14 @@ func platformHandler(args *CommandParsed, bot *discordgo.Session, interaction *d
 
 		if err != nil {
 			fmt.Printf("Error listing platforms: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
@@ -490,9 +421,9 @@ func platformHandler(args *CommandParsed, bot *discordgo.Session, interaction *d
 		}
 
 		for _, platform := range platforms {
-			container := discordgo.Container{
-				Components: []discordgo.MessageComponent{
-					discordgo.TextDisplay{
+			container := discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
 						Content: fmt.Sprintf("### ID: %s\n### Name: %s\n### BuyingPower: %d", platform.ID, platform.Name, platform.BuyingPower),
 					},
 				},
@@ -501,28 +432,30 @@ func platformHandler(args *CommandParsed, bot *discordgo.Session, interaction *d
 		}
 
 	case "remove":
-		err := database.RemovePlatform(args.Arguments["id"])
+		err := database.RemovePlatform(args.Options["id"].String())
 		if err != nil {
 			fmt.Printf("Error removing platform: %s\n", err)
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: err.Error(),
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
 			}
 		} else {
-			components = []discordgo.MessageComponent{
-				discordgo.TextDisplay{
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
 					Content: "Successfully removed the platform",
 				},
 			}
-			_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
 				fmt.Printf("Error editing the response: %s\n", err)
@@ -532,18 +465,19 @@ func platformHandler(args *CommandParsed, bot *discordgo.Session, interaction *d
 	return
 }
 
-func platformModelHandler(args *CommandParsed, bot *discordgo.Session, interaction *discordgo.InteractionCreate) (components []discordgo.MessageComponent) {
-	platform, err := database.GetPlatform(args.Arguments["id"])
+func platformModelHandler(args discord.SlashCommandInteractionData, event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	platform, err := database.GetPlatform(args.Options["id"].String())
 
 	if err != nil {
 		fmt.Printf("Error fetching platform: %s\n", err)
-		components = []discordgo.MessageComponent{
-			discordgo.TextDisplay{
+		components = []discord.LayoutComponent{
+			discord.TextDisplayComponent{
 				Content: err.Error(),
 			},
 		}
-		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 			Components: &components,
+			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
 			fmt.Printf("Error editing the response: %s\n", err)
@@ -551,17 +485,18 @@ func platformModelHandler(args *CommandParsed, bot *discordgo.Session, interacti
 		return
 	}
 
-	model, err := database.GetModel(args.Arguments["name"])
+	model, err := database.GetModel(args.Options["name"].String())
 
 	if err != nil {
 		fmt.Printf("Error fetching model: %s\n", err)
-		components = []discordgo.MessageComponent{
-			discordgo.TextDisplay{
+		components = []discord.LayoutComponent{
+			discord.TextDisplayComponent{
 				Content: err.Error(),
 			},
 		}
-		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 			Components: &components,
+			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
 			fmt.Printf("Error editing the response: %s\n", err)
@@ -569,17 +504,17 @@ func platformModelHandler(args *CommandParsed, bot *discordgo.Session, interacti
 		return
 	}
 
-	tokens, _ := strconv.Atoi(args.Arguments["tokens"])
-	err = database.SetPlatformModels(platform.ID, model, tokens)
+	err = database.SetPlatformModels(platform.ID, model, args.Options["tokens"].Int())
 	if err != nil {
 		fmt.Printf("Error setting platform_model tokens: %s\n", err)
-		components = []discordgo.MessageComponent{
-			discordgo.TextDisplay{
+		components = []discord.LayoutComponent{
+			discord.TextDisplayComponent{
 				Content: err.Error(),
 			},
 		}
-		_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 			Components: &components,
+			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
 			fmt.Printf("Error editing the response: %s\n", err)
@@ -587,13 +522,14 @@ func platformModelHandler(args *CommandParsed, bot *discordgo.Session, interacti
 		return
 	}
 
-	components = []discordgo.MessageComponent{
-		discordgo.TextDisplay{
+	components = []discord.LayoutComponent{
+		discord.TextDisplayComponent{
 			Content: "Successfully added the platform",
 		},
 	}
-	_, err = bot.InteractionResponseEdit(interaction.Interaction, &discordgo.WebhookEdit{
+	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 		Components: &components,
+		Flags:      util.ConfigFile.SetComponentV2Flags(),
 	})
 	if err != nil {
 		fmt.Printf("Error editing the response: %s\n", err)

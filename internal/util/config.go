@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
-	"github.com/bwmarrin/discordgo"
+	"github.com/disgoorg/disgo/discord"
 	"github.com/joho/godotenv"
 	"github.com/stollenaar/aws-rotating-credentials-provider/credentials/filecreds"
 )
@@ -149,10 +149,16 @@ func getAWSParameter(parameterName string) (string, error) {
 	return *out.Parameter.Value, err
 }
 
-func (c *Config) SetEphemeral() discordgo.MessageFlags {
+func (c *Config) SetEphemeral() discord.MessageFlags {
 	if c.DEBUG {
-		return discordgo.MessageFlagsEphemeral
+		return discord.MessageFlagEphemeral
 	} else {
-		return 0
+		return discord.MessageFlagsNone
 	}
+}
+
+func (c *Config) SetComponentV2Flags() *discord.MessageFlags {
+	eph := c.SetEphemeral()
+	eph = eph.Add(discord.MessageFlagIsComponentsV2)
+	return &eph
 }
