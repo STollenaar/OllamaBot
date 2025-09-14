@@ -16,7 +16,6 @@ import (
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
-	"github.com/disgoorg/disgo/handler"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/stollenaar/ollamabot/internal/commands"
 	"github.com/stollenaar/ollamabot/internal/routes"
@@ -105,9 +104,9 @@ func main() {
 			registeredCommands = r
 		}
 	}
-	if err := handler.SyncCommands(client, commands.ApplicationCommands, guilds); err != nil {
-		log.Fatal("error while registering commands: ", err)
-	}
+	// if err := handler.SyncCommands(client, commands.ApplicationCommands, guilds); err != nil {
+	// 	log.Fatal("error while registering commands: ", err)
+	// }
 
 	if err := client.OpenGateway(context.TODO()); err != nil {
 		log.Fatal("error while connecting to gateway: ", err)
