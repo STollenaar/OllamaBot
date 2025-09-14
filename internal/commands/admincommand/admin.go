@@ -245,6 +245,16 @@ func ollamaHandler(args discord.SlashCommandInteractionData, event *events.Appli
 			}
 			components = append(components, container)
 		}
+
+		if len(resp.Models) == 0 {
+			components = append(components, discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
+						Content: "No Ollama Models Available",
+					},
+				},
+			})
+		}
 	}
 	return
 }
@@ -328,6 +338,17 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 			}
 			components = append(components, container)
 		}
+
+		if len(models) == 0 {
+			components = append(components, discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
+						Content: "No Models Configured",
+					},
+				},
+			})
+		}
+
 	case "remove":
 		err := database.RemoveModel(args.Options["name"].String())
 		if err != nil {
@@ -430,6 +451,16 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				},
 			}
 			components = append(components, container)
+		}
+
+		if len(platforms) == 0 {
+			components = append(components, discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
+						Content: "No Platforms Configured",
+					},
+				},
+			})
 		}
 
 	case "remove":
