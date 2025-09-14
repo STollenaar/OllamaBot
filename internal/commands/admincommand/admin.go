@@ -144,7 +144,7 @@ func (a AdminCommand) CreateCommandArguments() []discord.ApplicationCommandOptio
 							Description: "Name of the platform",
 							Required:    true,
 						},
-						discord.ApplicationCommandOptionString{
+						discord.ApplicationCommandOptionInt{
 							Name:        "buying_power",
 							Description: "Buying power of the platform",
 							Required:    true,
