@@ -13,6 +13,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
+	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/disgo/handler"
@@ -25,9 +26,10 @@ import (
 var (
 	client *bot.Client
 
-	GuildID       = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
-	Debug         = flag.Bool("debug", false, "Run in debug mode")
-	PurgeCommands = flag.Bool("purgecmd", false, "Remove all loaded commands")
+	GuildID        = flag.String("guild", "", "Test guild ID. If not passed - bot registers commands globally")
+	Debug          = flag.Bool("debug", false, "Run in debug mode")
+	PurgeCommands  = flag.Bool("purgecmd", false, "Remove all loaded commands")
+	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
 )
 
 func init() {
@@ -89,13 +91,18 @@ func main() {
 	}
 
 	slog.Info("Adding commands...")
+	registeredCommands := make([]discord.ApplicationCommand, len(commands.ApplicationCommands))
 	if *GuildID != "" {
-		if _, err := client.Rest.SetGuildCommands(client.ApplicationID, guilds[0], commands.ApplicationCommands); err != nil {
+		if r, err := client.Rest.SetGuildCommands(client.ApplicationID, guilds[0], commands.ApplicationCommands); err != nil {
 			slog.Error("error while registering commands", slog.Any("err", err))
+		} else {
+			registeredCommands = r
 		}
 	} else {
-		if _, err := client.Rest.SetGlobalCommands(client.ApplicationID, commands.ApplicationCommands); err != nil {
+		if r, err := client.Rest.SetGlobalCommands(client.ApplicationID, commands.ApplicationCommands); err != nil {
 			slog.Error("error while registering commands", slog.Any("err", err))
+		} else {
+			registeredCommands = r
 		}
 	}
 	if err := handler.SyncCommands(client, commands.ApplicationCommands, guilds); err != nil {
@@ -112,6 +119,32 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
+
+	if *RemoveCommands {
+		log.Println("Removing commands...")
+		// We need to fetch the commands, since deleting requires the command ID.
+		// We are doing this from the returned commands on line 375, because using
+		// this will delete all the commands, which might not be desirable, so we
+		// are deleting only the commands that we added.
+		// registeredCommands, err := s.ApplicationCommands(s.State.User.ID, *GuildID)
+		// if err != nil {
+		// 	log.Fatalf("Could not fetch registered commands: %v", err)
+		// }
+
+		for _, v := range registeredCommands {
+			if *GuildID != "" {
+				err := client.Rest.DeleteGuildCommand(v.ApplicationID(), *v.GuildID(), v.ID())
+				if err != nil {
+					slog.Error(fmt.Sprintf("Cannot delete '%s' command: ", v.Name()), slog.Any("err", err))
+				}
+			} else {
+				err := client.Rest.DeleteGlobalCommand(v.ApplicationID(), v.ID())
+				if err != nil {
+					slog.Error(fmt.Sprintf("Cannot delete '%s' command: ", v.Name()), slog.Any("err", err))
+				}
+			}
+		}
+	}
 }
 
 func containsCommand(cmd *discordgo.ApplicationCommand, commands []*discordgo.ApplicationCommand) *discordgo.ApplicationCommand {
