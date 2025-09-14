@@ -92,6 +92,10 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 	}
 
 	submittedData := extractModalSubmitData(event.Data.AllComponents())
+	slog.Info("Received prompt submission",
+		slog.String("model", submittedData["model"]),
+		slog.String("prompt", submittedData["prompt"]),
+	)
 
 	OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
 		Model:  submittedData["model"],
