@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -44,7 +45,7 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 	err := event.DeferCreateMessage(true)
 
 	if err != nil {
-		fmt.Printf("Error deferring: %s\n", err)
+		slog.Error("Error deferring: ", slog.Any("err", err))
 		return
 	}
 
@@ -66,7 +67,7 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 		Flags:      util.ConfigFile.SetComponentV2Flags(),
 	})
 	if err != nil {
-		fmt.Printf("Error editing the response: %s\n", err)
+		slog.Error("Error editing the response", slog.Any("err", err))
 	}
 }
 
@@ -206,7 +207,7 @@ func ollamaHandler(args discord.SlashCommandInteractionData, event *events.Appli
 			return nil
 		})
 		if err != nil {
-			fmt.Printf("Error pulling model: %s\n", err)
+			slog.Error("Error pulling model: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -217,7 +218,7 @@ func ollamaHandler(args discord.SlashCommandInteractionData, event *events.Appli
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 			return
 		} else {
@@ -230,7 +231,7 @@ func ollamaHandler(args discord.SlashCommandInteractionData, event *events.Appli
 	case "list":
 		resp, err := OllamaClient.List(context.TODO())
 		if err != nil {
-			fmt.Printf("Error listing models: %s\n", err)
+			slog.Error("Error listing models: ", slog.Any("err", err))
 			return
 		}
 
@@ -255,7 +256,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 
 		resp, err := OllamaClient.List(context.TODO())
 		if err != nil {
-			fmt.Printf("Error listing models: %s\n", err)
+			slog.Error("Error listing models: ", slog.Any("err", err))
 			return
 		}
 		if !containsModel(model, resp.Models) {
@@ -269,7 +270,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 
 		err = database.AddModel(model)
 		if err != nil {
-			fmt.Printf("Error creating model: %s\n", err)
+			slog.Error("Error creating model: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -280,7 +281,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -293,14 +294,14 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		}
 	case "list":
 		models, err := database.ListModels()
 
 		if err != nil {
-			fmt.Printf("Error listing platforms: %s\n", err)
+			slog.Error("Error listing platforms: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -311,7 +312,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 
 			return
@@ -330,7 +331,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 	case "remove":
 		err := database.RemoveModel(args.Options["name"].String())
 		if err != nil {
-			fmt.Printf("Error removing model: %s\n", err)
+			slog.Error("Error removing model: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -341,7 +342,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -354,7 +355,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		}
 	}
@@ -372,7 +373,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 		}
 		err := database.AddPlatform(platform)
 		if err != nil {
-			fmt.Printf("Error creating platform: %s\n", err)
+			slog.Error("Error creating platform: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -383,7 +384,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -396,14 +397,14 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		}
 	case "list":
 		platforms, err := database.ListPlatforms()
 
 		if err != nil {
-			fmt.Printf("Error listing platforms: %s\n", err)
+			slog.Error("Error listing platforms: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -414,7 +415,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 
 			return
@@ -434,7 +435,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 	case "remove":
 		err := database.RemovePlatform(args.Options["id"].String())
 		if err != nil {
-			fmt.Printf("Error removing platform: %s\n", err)
+			slog.Error("Error removing platform: ", slog.Any("err", err))
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: err.Error(),
@@ -445,7 +446,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -458,7 +459,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				fmt.Printf("Error editing the response: %s\n", err)
+				slog.Error("Error editing the response", slog.Any("err", err))
 			}
 		}
 	}
@@ -469,7 +470,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 	platform, err := database.GetPlatform(args.Options["id"].String())
 
 	if err != nil {
-		fmt.Printf("Error fetching platform: %s\n", err)
+		slog.Error("Error fetching platform: ", slog.Any("err", err))
 		components = []discord.LayoutComponent{
 			discord.TextDisplayComponent{
 				Content: err.Error(),
@@ -480,7 +481,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			fmt.Printf("Error editing the response: %s\n", err)
+			slog.Error("Error editing the response", slog.Any("err", err))
 		}
 		return
 	}
@@ -488,7 +489,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 	model, err := database.GetModel(args.Options["name"].String())
 
 	if err != nil {
-		fmt.Printf("Error fetching model: %s\n", err)
+		slog.Error("Error fetching model: ", slog.Any("err", err))
 		components = []discord.LayoutComponent{
 			discord.TextDisplayComponent{
 				Content: err.Error(),
@@ -499,14 +500,14 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			fmt.Printf("Error editing the response: %s\n", err)
+			slog.Error("Error editing the response", slog.Any("err", err))
 		}
 		return
 	}
 
 	err = database.SetPlatformModels(platform.ID, model, args.Options["tokens"].Int())
 	if err != nil {
-		fmt.Printf("Error setting platform_model tokens: %s\n", err)
+		slog.Error("Error setting platform_model tokens: ", slog.Any("err", err))
 		components = []discord.LayoutComponent{
 			discord.TextDisplayComponent{
 				Content: err.Error(),
@@ -517,7 +518,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			fmt.Printf("Error editing the response: %s\n", err)
+			slog.Error("Error editing the response", slog.Any("err", err))
 		}
 		return
 	}
@@ -532,7 +533,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 		Flags:      util.ConfigFile.SetComponentV2Flags(),
 	})
 	if err != nil {
-		fmt.Printf("Error editing the response: %s\n", err)
+		slog.Error("Error editing the response", slog.Any("err", err))
 	}
 	return
 }

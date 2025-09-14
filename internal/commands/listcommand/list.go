@@ -2,6 +2,7 @@ package listcommand
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/disgoorg/disgo/discord"
@@ -25,7 +26,7 @@ type ListCommand struct {
 func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
 	err := event.DeferCreateMessage(util.ConfigFile.SetEphemeral() == discord.MessageFlagEphemeral)
 	if err != nil {
-		fmt.Printf("Error deferring: %s\n", err)
+		slog.Error("Error deferring: ", slog.Any("err", err))
 		return
 	}
 
@@ -33,7 +34,7 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 	var components []discord.LayoutComponent
 
 	if err != nil {
-		fmt.Printf("Error pulling model: %s\n", err)
+		slog.Error("Error pulling model: ", slog.Any("err", err))
 		components = []discord.LayoutComponent{
 			discord.TextDisplayComponent{
 				Content: err.Error(),
@@ -44,7 +45,7 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			fmt.Println(err)
+			slog.Error("Error updating error", slog.Any("err", err))
 		}
 		return
 	}
@@ -80,7 +81,7 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 	})
 
 	if err != nil {
-		fmt.Printf("Error editing the response: %s\n", err)
+		slog.Error("Error editing the response: ", slog.Any("err", err))
 	}
 }
 

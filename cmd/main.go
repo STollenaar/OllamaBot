@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -58,28 +60,44 @@ func main() {
 	}
 
 	if *PurgeCommands {
-		if GuildID != nil {
-			cmds, _ := client.Rest.GetGuildCommands(client.ApplicationID, guilds[0], false)
+		if *GuildID != "" {
+			cmds, err := client.Rest.GetGuildCommands(client.ApplicationID, guilds[0], false)
+			if err != nil {
+				log.Fatal(err)
+			}
 			for _, cmd := range cmds {
 				err := client.Rest.DeleteGuildCommand(cmd.ApplicationID(), *cmd.GuildID(), cmd.ID())
 				if err != nil {
-					log.Printf("Cannot delete '%v' command: %v\n", cmd.Name, err)
+					slog.Error(fmt.Sprintf("Cannot delete '%s' command: ", cmd.Name()), slog.Any("err", err))
 				}
 			}
+			slog.Info("Done deleting guild commands")
 		} else {
-			cmds, _ := client.Rest.GetGlobalCommands(client.ApplicationID, false)
+			cmds, err := client.Rest.GetGlobalCommands(client.ApplicationID, false)
+			if err != nil {
+				log.Fatal(err)
+			}
 			for _, cmd := range cmds {
 				err := client.Rest.DeleteGlobalCommand(cmd.ApplicationID(), cmd.ID())
 				if err != nil {
-					log.Printf("Cannot delete '%v' command: %v\n", cmd.Name, err)
+					slog.Error(fmt.Sprintf("Cannot delete '%s' command: ", cmd.Name()), slog.Any("err", err))
 				}
 			}
-
+			slog.Info("Done deleting global commands")
 		}
 		return
 	}
 
-	log.Println("Adding commands...")
+	slog.Info("Adding commands...")
+	if *GuildID != "" {
+		if _, err := client.Rest.SetGuildCommands(client.ApplicationID, guilds[0], commands.ApplicationCommands); err != nil {
+			slog.Error("error while registering commands", slog.Any("err", err))
+		}
+	} else {
+		if _, err := client.Rest.SetGlobalCommands(client.ApplicationID, commands.ApplicationCommands); err != nil {
+			slog.Error("error while registering commands", slog.Any("err", err))
+		}
+	}
 	if err := handler.SyncCommands(client, commands.ApplicationCommands, guilds); err != nil {
 		log.Fatal("error while registering commands: ", err)
 	}
@@ -87,7 +105,7 @@ func main() {
 	if err := client.OpenGateway(context.TODO()); err != nil {
 		log.Fatal("error while connecting to gateway: ", err)
 	}
-	log.Println("Bot started")
+	slog.Info("Bot started")
 
 	go routes.CreateRouter()
 

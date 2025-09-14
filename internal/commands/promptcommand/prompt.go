@@ -2,9 +2,9 @@ package promptcommand
 
 import (
 	"context"
-	"fmt"
 	"iter"
 	"log"
+	"log/slog"
 	"maps"
 	"slices"
 
@@ -40,7 +40,7 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	models, err := database.ListPlatformModels()
 
 	if err != nil {
-		fmt.Printf("Error fetching models: %e\n", err)
+		slog.Error("Error fetching models: ", slog.Any("err", err))
 
 		err := event.CreateMessage(discord.MessageCreate{
 			Flags: util.ConfigFile.SetEphemeral() | discord.MessageFlagIsComponentsV2,
@@ -52,7 +52,7 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 		})
 
 		if err != nil {
-			fmt.Printf("Error deferring: %s\n", err)
+			slog.Error("Error deferring: ", slog.Any("err", err))
 		}
 		return
 	}
@@ -79,7 +79,7 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		slog.Error("Error creating modal: ", slog.Any("err", err))
 	}
 }
 
@@ -87,7 +87,7 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 	err := event.DeferCreateMessage(util.ConfigFile.SetEphemeral() == discord.MessageFlagEphemeral)
 
 	if err != nil {
-		fmt.Printf("Error deferring: %s\n", err)
+		slog.Error("Error deferring: ", slog.Any("err", err))
 		return
 	}
 
@@ -102,7 +102,7 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 			Content: &gr.Response,
 		})
 		if err != nil {
-			fmt.Printf("Error updating prompt: %s\n", err)
+			slog.Error("Error editing the response: ", slog.Any("err", err))
 		}
 		return err
 	})

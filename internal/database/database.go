@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"log/slog"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -87,7 +88,7 @@ func init() {
 		log.Fatalf("migration failed: %v", err)
 	}
 
-	log.Println("All migrations applied successfully.")
+	slog.Info("All migrations applied successfully.")
 }
 
 func runMigrations() error {
