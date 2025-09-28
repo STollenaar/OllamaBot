@@ -9,7 +9,7 @@ terraform/**/.terraform/
 volumes/
 **/*.db*
 *.csv
-cmd/ollamabot/__debug_*
+**/__debug_*
 __pycache__/
 venv/
 tools/charts/chart.html

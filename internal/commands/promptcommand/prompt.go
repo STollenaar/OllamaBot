@@ -97,6 +97,15 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 		slog.String("prompt", submittedData["prompt"]),
 	)
 
+	err = database.AddHistory(database.History{
+		ModelName: submittedData["model"],
+		Prompt:    submittedData["prompt"],
+	})
+
+		if err != nil {
+			slog.Error("Error saving history: ", slog.Any("err", err))
+		}
+
 	OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
 		Model:  submittedData["model"],
 		Prompt: submittedData["prompt"],

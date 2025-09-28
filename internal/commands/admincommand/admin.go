@@ -61,6 +61,8 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 		components = ollamaHandler(sub, event)
 	case "platform_model":
 		components = platformModelHandler(sub, event)
+	case "prompt":
+		components = promptHandler(sub, event)
 	}
 	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 		Components: &components,
@@ -192,6 +194,27 @@ func (a AdminCommand) CreateCommandArguments() []discord.ApplicationCommandOptio
 							Required:    true,
 						},
 					},
+				},
+			},
+		},
+		discord.ApplicationCommandOptionSubCommandGroup{
+			Name:        "prompt",
+			Description: "prompt admin subcommands",
+			Options: []discord.ApplicationCommandOptionSubCommand{
+				{
+					Name:        "replay",
+					Description: "Replay a previous done prompt",
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionInt{
+							Name:        "id",
+							Description: "ID of the prompt",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Name:        "list",
+					Description: "List all prompt",
 				},
 			},
 		},
@@ -565,6 +588,86 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 	})
 	if err != nil {
 		slog.Error("Error editing the response", slog.Any("err", err))
+	}
+	return
+}
+
+func promptHandler(args discord.SlashCommandInteractionData, event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	switch *args.SubCommandName {
+	case "list":
+		history, err := database.ListHistory()
+
+		if err != nil {
+			slog.Error("Error listing history: ", slog.Any("err", err))
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
+					Content: err.Error(),
+				},
+			}
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
+			})
+			if err != nil {
+				slog.Error("Error editing the response", slog.Any("err", err))
+			}
+
+			return
+		}
+
+		for _, hist := range history {
+			container := discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
+						Content: fmt.Sprintf("### ID: %d\n### Model Name: %s\n### Prompt: %s", hist.ID, hist.ModelName, hist.Prompt),
+					},
+				},
+			}
+			components = append(components, container)
+		}
+
+		if len(history) == 0 {
+			components = append(components, discord.ContainerComponent{
+				Components: []discord.ContainerSubComponent{
+					discord.TextDisplayComponent{
+						Content: "No History Yet",
+					},
+				},
+			})
+		}
+	case "replay":
+		history, err := database.GetHistory(args.Options["id"].Int())
+
+		if err != nil {
+			slog.Error("Error fetching history: ", slog.Any("err", err))
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
+					Content: err.Error(),
+				},
+			}
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
+			})
+			if err != nil {
+				slog.Error("Error editing the response", slog.Any("err", err))
+			}
+
+			return
+		}
+
+		OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
+			Model:  history.ModelName,
+			Prompt: history.Prompt,
+			Stream: new(bool),
+		}, func(gr ollamaApi.GenerateResponse) error {
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
+					Content: gr.Response,
+				},
+			}
+			return nil
+		})
 	}
 	return
 }

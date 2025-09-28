@@ -59,6 +59,13 @@ type PlatformModel struct {
 	Tokens     int    `json:"tokens"`
 }
 
+// History track all prompts made with the bot
+type History struct {
+	ID        int    `json:"id"`
+	ModelName string `json:"model_name"`
+	Prompt    string `json:"prompt"`
+}
+
 func init() {
 
 	var err error
@@ -460,4 +467,55 @@ func GetModel(name string) (string, error) {
 
 	var mn string
 	return name, row.Scan(&mn)
+}
+
+func AddHistory(hist History) error {
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		INSERT INTO history (model_name, prompt)
+		VALUES (?, ?);
+	`, hist.ModelName, hist.Prompt)
+
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func ListHistory() (history []History, err error) {
+	rows, err := duckdbClient.Query(`SELECT * FROM history`)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var model_name, prompt string
+		var id int
+		err = rows.Scan(&id, &model_name, &prompt)
+		history = append(history, History{ID: id, ModelName: model_name, Prompt: prompt})
+
+		if err != nil {
+			break
+		}
+	}
+	return
+
+}
+
+func GetHistory(id int) (history History, err error) {
+	row := duckdbClient.QueryRow(`
+        SELECT model_name, prompt FROM history
+        WHERE id = ?;
+    `, id)
+
+	var model_name, prompt string
+	err = row.Scan(&model_name, &prompt)
+
+	return History{ID: id, ModelName: model_name, Prompt: prompt}, err
 }
