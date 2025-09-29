@@ -69,7 +69,7 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 		Flags:      util.ConfigFile.SetComponentV2Flags(),
 	})
 	if err != nil {
-		slog.Error("Error editing the response", slog.Any("err", err))
+		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 	}
 }
 
@@ -241,7 +241,7 @@ func ollamaHandler(args discord.SlashCommandInteractionData, event *events.Appli
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 			return
 		} else {
@@ -314,7 +314,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -327,7 +327,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		}
 	case "list":
@@ -345,7 +345,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 
 			return
@@ -386,7 +386,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -399,7 +399,7 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		}
 	}
@@ -428,7 +428,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -441,7 +441,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		}
 	case "list":
@@ -459,7 +459,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 
 			return
@@ -500,7 +500,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		} else {
 			components = []discord.LayoutComponent{
@@ -513,7 +513,7 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 		}
 	}
@@ -535,7 +535,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			slog.Error("Error editing the response", slog.Any("err", err))
+			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 		}
 		return
 	}
@@ -554,7 +554,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			slog.Error("Error editing the response", slog.Any("err", err))
+			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 		}
 		return
 	}
@@ -572,7 +572,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Flags:      util.ConfigFile.SetComponentV2Flags(),
 		})
 		if err != nil {
-			slog.Error("Error editing the response", slog.Any("err", err))
+			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 		}
 		return
 	}
@@ -587,7 +587,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 		Flags:      util.ConfigFile.SetComponentV2Flags(),
 	})
 	if err != nil {
-		slog.Error("Error editing the response", slog.Any("err", err))
+		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 	}
 	return
 }
@@ -609,7 +609,7 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 
 			return
@@ -650,7 +650,7 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 				Flags:      util.ConfigFile.SetComponentV2Flags(),
 			})
 			if err != nil {
-				slog.Error("Error editing the response", slog.Any("err", err))
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 			}
 
 			return

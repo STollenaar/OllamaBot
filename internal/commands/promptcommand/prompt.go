@@ -115,7 +115,7 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 			Content: &gr.Response,
 		})
 		if err != nil {
-			slog.Error("Error editing the response: ", slog.Any("err", err))
+			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", gr.Response))
 		}
 		return err
 	})

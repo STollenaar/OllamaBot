@@ -81,7 +81,7 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 	})
 
 	if err != nil {
-		slog.Error("Error editing the response: ", slog.Any("err", err))
+		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
 	}
 }
 
