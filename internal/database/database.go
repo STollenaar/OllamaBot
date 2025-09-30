@@ -508,7 +508,7 @@ func ListHistory() (history []History, err error) {
 	for rows.Next() {
 		var model_name, user_id, prompt string
 		var id int
-		err = rows.Scan(&id, &model_name, &user_id, &prompt)
+		err = rows.Scan(&id, &model_name, &prompt, &user_id)
 		history = append(history, History{ID: id, ModelName: model_name, UserID: user_id, Prompt: prompt})
 
 		if err != nil {
