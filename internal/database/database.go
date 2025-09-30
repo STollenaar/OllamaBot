@@ -66,6 +66,16 @@ type History struct {
 	Prompt    string `json:"prompt"`
 }
 
+// UserContext track the user contexts
+type UserContext struct {
+	UserID    string    `json:"user_id"`
+	Name      string    `json:"name"`
+	ModelName string    `json:"model_name"`
+	Context   []int32   `json:"context"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 func init() {
 
 	var err error
@@ -518,4 +528,44 @@ func GetHistory(id int) (history History, err error) {
 	err = row.Scan(&model_name, &prompt)
 
 	return History{ID: id, ModelName: model_name, Prompt: prompt}, err
+}
+
+func GetContext(userID, modelName string) []int32 {
+	row := duckdbClient.QueryRow(`
+		SELECT context FROM contexts
+		WHERE user_id = ? AND model_name = ?;
+	`, userID, modelName)
+
+	var raw []interface{}
+	err := row.Scan(&raw)
+	if err != nil && err != sql.ErrNoRows {
+		slog.Error("Error fetching contexts:", slog.Any("err", err))
+	}
+	context := make([]int32, len(raw))
+	for i, v := range raw {
+		context[i] = v.(int32)
+	}
+
+	return context
+}
+
+func SetContext(userContext UserContext) error {
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+	_, err = tx.Exec(`
+		INSERT INTO contexts (user_id, model_name, context, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?) 
+		ON CONFLICT DO UPDATE SET 
+		context = EXCLUDED.context,
+		updated_at = EXCLUDED.updated_at;
+	`, userContext.UserID, userContext.ModelName, userContext.Context, now, now)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }

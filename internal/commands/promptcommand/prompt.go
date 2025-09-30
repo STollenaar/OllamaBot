@@ -76,6 +76,23 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 					Required: true,
 				},
 			},
+			discord.LabelComponent{
+				Label: "Context",
+				Component: discord.StringSelectMenuComponent{
+					CustomID: "context",
+					Options: []discord.StringSelectMenuOption{
+						{
+							Label: "New Context",
+							Value: "new_context",
+						},
+						{
+							Label:   "Current Context",
+							Value:   "current_context",
+							Default: true,
+						},
+					},
+				},
+			},
 		},
 	})
 	if err != nil {
@@ -102,20 +119,35 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 		Prompt:    submittedData["prompt"],
 	})
 
-		if err != nil {
-			slog.Error("Error saving history: ", slog.Any("err", err))
-		}
+	if err != nil {
+		slog.Error("Error saving history: ", slog.Any("err", err))
+	}
+
+	var ollamaContext []int32
+	if submittedData["context"] == "current_context" {
+		ollamaContext = database.GetContext(event.User().ID.String(), submittedData["model"])
+	}
 
 	OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
-		Model:  submittedData["model"],
-		Prompt: submittedData["prompt"],
-		Stream: new(bool),
+		Model:   submittedData["model"],
+		Prompt:  submittedData["prompt"],
+		Stream:  new(bool),
+		Context: int32ToIntSlice(ollamaContext),
 	}, func(gr ollamaApi.GenerateResponse) error {
 		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 			Content: &gr.Response,
 		})
 		if err != nil {
 			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", gr.Response))
+		}
+
+		err = database.SetContext(database.UserContext{
+			UserID:    event.User().ID.String(),
+			ModelName: submittedData["model"],
+			Context:   intToInt32Slice(gr.Context),
+		})
+		if err != nil {
+			slog.Error("Error updating context:", slog.Any("err", err))
 		}
 		return err
 	})
@@ -150,4 +182,20 @@ func extractModalSubmitData(components iter.Seq[discord.Component]) map[string]s
 		}
 	}
 	return formData
+}
+
+func intToInt32Slice(input []int) []int32 {
+	output := make([]int32, len(input))
+	for i, v := range input {
+		output[i] = int32(v)
+	}
+	return output
+}
+
+func int32ToIntSlice(input []int32) []int {
+	output := make([]int, len(input))
+	for i, v := range input {
+		output[i] = int(v)
+	}
+	return output
 }
