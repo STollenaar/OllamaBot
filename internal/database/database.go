@@ -62,6 +62,7 @@ type PlatformModel struct {
 // History track all prompts made with the bot
 type History struct {
 	ID        int    `json:"id"`
+	UserID    string `json:"user_id"`
 	ModelName string `json:"model_name"`
 	Prompt    string `json:"prompt"`
 }
@@ -487,9 +488,9 @@ func AddHistory(hist History) error {
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		INSERT INTO history (model_name, prompt)
-		VALUES (?, ?);
-	`, hist.ModelName, hist.Prompt)
+		INSERT INTO history (model_name, user_id, prompt)
+		VALUES (?, ?, ?);
+	`, hist.ModelName, hist.UserID, hist.Prompt)
 
 	if err != nil {
 		return err
@@ -505,10 +506,10 @@ func ListHistory() (history []History, err error) {
 	}
 
 	for rows.Next() {
-		var model_name, prompt string
+		var model_name, user_id, prompt string
 		var id int
-		err = rows.Scan(&id, &model_name, &prompt)
-		history = append(history, History{ID: id, ModelName: model_name, Prompt: prompt})
+		err = rows.Scan(&id, &model_name, &user_id, &prompt)
+		history = append(history, History{ID: id, ModelName: model_name, UserID: user_id, Prompt: prompt})
 
 		if err != nil {
 			break

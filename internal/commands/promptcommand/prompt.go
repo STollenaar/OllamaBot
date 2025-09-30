@@ -116,6 +116,7 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 
 	err = database.AddHistory(database.History{
 		ModelName: submittedData["model"],
+		UserID:    event.User().ID.String(),
 		Prompt:    submittedData["prompt"],
 	})
 
