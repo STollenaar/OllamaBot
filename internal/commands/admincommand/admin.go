@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"strings"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
@@ -64,6 +65,37 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 	case "prompt":
 		components = promptHandler(sub, event)
 	}
+	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+		Components: &components,
+		Flags:      util.ConfigFile.SetComponentV2Flags(),
+	})
+	if err != nil {
+		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
+	}
+}
+
+func (a AdminCommand) ComponentHandler(event *events.ComponentInteractionCreate) {
+	err := event.DeferCreateMessage(false)
+
+	if err != nil {
+		slog.Error("Error deferring: ", slog.Any("err", err))
+		return
+	}
+
+	var components []discord.LayoutComponent
+	switch strings.Split(event.Data.CustomID(), "_")[1] {
+	case "prompt":
+		components = promptButtonHandler(event)
+	default:
+		components = append(components, discord.ContainerComponent{
+			Components: []discord.ContainerSubComponent{
+				discord.TextDisplayComponent{
+					Content: "Unknown button interaction",
+				},
+			},
+		})
+	}
+
 	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
 		Components: &components,
 		Flags:      util.ConfigFile.SetComponentV2Flags(),
@@ -665,11 +697,26 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 				discord.TextDisplayComponent{
 					Content: gr.Response,
 				},
+				discord.ActionRowComponent{
+					Components: []discord.InteractiveComponent{
+						discord.ButtonComponent{
+							Style:    discord.ButtonStylePrimary,
+							Label:    "Post Prompt",
+							CustomID: "admin_prompt_post",
+						},
+					},
+				},
 			}
 			return nil
 		})
 	}
 	return
+}
+
+func promptButtonHandler(event *events.ComponentInteractionCreate) []discord.LayoutComponent {
+	return []discord.LayoutComponent{
+		event.Message.Components[0],
+	}
 }
 
 func containsModel(model string, models []ollamaApi.ListModelResponse) bool {

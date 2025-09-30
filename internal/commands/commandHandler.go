@@ -25,6 +25,7 @@ var (
 	ApplicationCommands []discord.ApplicationCommandCreate
 	CommandHandlers     = make(map[string]func(e *events.ApplicationCommandInteractionCreate))
 	ModalSubmitHandlers = make(map[string]func(e *events.ModalSubmitInteractionCreate))
+	ComponentHandlers   = make(map[string]func(e *events.ComponentInteractionCreate))
 )
 
 func init() {
@@ -39,6 +40,13 @@ func init() {
 		if _, ok := reflect.TypeOf(cmd).MethodByName("ModalHandler"); ok {
 			ModalSubmitHandlers[reflect.ValueOf(cmd).FieldByName("Name").String()] = func(e *events.ModalSubmitInteractionCreate) {
 				reflect.ValueOf(cmd).MethodByName("ModalHandler").Call([]reflect.Value{
+					reflect.ValueOf(e),
+				})
+			}
+		}
+		if _, ok := reflect.TypeOf(cmd).MethodByName("ComponentHandler"); ok {
+			ComponentHandlers[reflect.ValueOf(cmd).FieldByName("Name").String()] = func(e *events.ComponentInteractionCreate) {
+				reflect.ValueOf(cmd).MethodByName("ComponentHandler").Call([]reflect.Value{
 					reflect.ValueOf(e),
 				})
 			}
