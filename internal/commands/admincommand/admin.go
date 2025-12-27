@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/snowflake/v2"
 	ollamaApi "github.com/ollama/ollama/api"
 	"github.com/stollenaar/ollamabot/internal/database"
 	"github.com/stollenaar/ollamabot/internal/util"
@@ -75,7 +77,11 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 }
 
 func (a AdminCommand) ComponentHandler(event *events.ComponentInteractionCreate) {
-	err := event.DeferCreateMessage(false)
+	if event.Member().User.ID.String() != util.ConfigFile.ADMIN_USER_ID {
+		return
+	}
+
+	err := event.DeferUpdateMessage()
 
 	if err != nil {
 		slog.Error("Error deferring: ", slog.Any("err", err))
@@ -627,7 +633,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 func promptHandler(args discord.SlashCommandInteractionData, event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
 	switch *args.SubCommandName {
 	case "list":
-		history, err := database.ListHistory()
+		history, err := database.ListHistory(0)
 
 		if err != nil {
 			slog.Error("Error listing history: ", slog.Any("err", err))
@@ -647,26 +653,55 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 			return
 		}
 
+		var container discord.ContainerComponent
 		for _, hist := range history {
-			container := discord.ContainerComponent{
-				Components: []discord.ContainerSubComponent{
+			user, err := event.Client().Rest.GetUser(snowflake.MustParse(hist.UserID))
+			if err != nil {
+				slog.Error("Error fetching user", slog.Any("err", err))
+			}
+			container.Components = append(container.Components, discord.SectionComponent{
+				Components: []discord.SectionSubComponent{
 					discord.TextDisplayComponent{
-						Content: fmt.Sprintf("### ID: %d\n### Model Name: %s\n### Prompt: %s", hist.ID, hist.ModelName, hist.Prompt),
+						Content: fmt.Sprintf("**ID:** %d\n**Model Name:** %s\n**User:** %s", hist.ID, hist.ModelName, user.Username),
+					},
+					discord.TextDisplayComponent{
+						Content: fmt.Sprintf("**Prompt:**\r%s", hist.Prompt),
 					},
 				},
-			}
-			components = append(components, container)
+				Accessory: discord.ButtonComponent{
+					Style:    discord.ButtonStylePrimary,
+					Label:    "Replay",
+					CustomID: fmt.Sprintf("admin_prompt_page_replay_%d", hist.ID),
+				},
+			},
+				discord.SeparatorComponent{},
+			)
 		}
+		container.Components = append(container.Components,
+			discord.ActionRowComponent{
+				Components: []discord.InteractiveComponent{
+					discord.ButtonComponent{
+						CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", 0),
+						Label:    "Previous",
+						Style:    discord.ButtonStylePrimary,
+					},
+					discord.ButtonComponent{
+						CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 0),
+						Label:    "Next",
+						Style:    discord.ButtonStylePrimary,
+					},
+				},
+			},
+		)
 
 		if len(history) == 0 {
-			components = append(components, discord.ContainerComponent{
-				Components: []discord.ContainerSubComponent{
-					discord.TextDisplayComponent{
-						Content: "No History Yet",
-					},
+			container.Components = []discord.ContainerSubComponent{
+				discord.TextDisplayComponent{
+					Content: "No History Yet",
 				},
-			})
+			}
 		}
+		components = append(components, container)
 	case "replay":
 		history, err := database.GetHistory(args.Options["id"].Int())
 
@@ -702,7 +737,7 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 						discord.ButtonComponent{
 							Style:    discord.ButtonStylePrimary,
 							Label:    "Post Prompt",
-							CustomID: "admin_prompt_post",
+							CustomID: "admin_prompt_page_post",
 						},
 					},
 				},
@@ -713,10 +748,152 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 	return
 }
 
-func promptButtonHandler(event *events.ComponentInteractionCreate) []discord.LayoutComponent {
-	return []discord.LayoutComponent{
-		event.Message.Components[0],
+func promptButtonHandler(event *events.ComponentInteractionCreate) (components []discord.LayoutComponent) {
+	if event.Member().User.ID.String() != util.ConfigFile.ADMIN_USER_ID {
+		return []discord.LayoutComponent{}
 	}
+
+	switch strings.Split(event.Data.CustomID(), "_")[3] {
+	case "post":
+		return []discord.LayoutComponent{
+			event.Message.Components[0],
+		}
+	case "previous":
+		index, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
+		index -= 6
+		if index < 0 {
+			index = 0
+		}
+		return promptListHandler(index, event)
+	case "next":
+		index, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
+		index += 6
+		maxSeq := database.CountHistory()
+		if index > maxSeq {
+			index -= 6
+		}
+		return promptListHandler(index, event)
+	case "replay":
+		id, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
+		history, err := database.GetHistory(id)
+
+		if err != nil {
+			slog.Error("Error fetching history: ", slog.Any("err", err))
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
+					Content: err.Error(),
+				},
+			}
+			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+				Components: &components,
+				Flags:      util.ConfigFile.SetComponentV2Flags(),
+			})
+			if err != nil {
+				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
+			}
+
+			return
+		}
+
+		OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
+			Model:  history.ModelName,
+			Prompt: history.Prompt,
+			Stream: new(bool),
+		}, func(gr ollamaApi.GenerateResponse) error {
+			components = []discord.LayoutComponent{
+				discord.TextDisplayComponent{
+					Content: gr.Response,
+				},
+				discord.ActionRowComponent{
+					Components: []discord.InteractiveComponent{
+						discord.ButtonComponent{
+							Style:    discord.ButtonStylePrimary,
+							Label:    "Post Prompt",
+							CustomID: "admin_prompt_page_post",
+						},
+					},
+				},
+			}
+			return nil
+		})
+		return components
+	default:
+		return []discord.LayoutComponent{}
+	}
+}
+
+func promptListHandler(index int, event *events.ComponentInteractionCreate) (components []discord.LayoutComponent) {
+	history, err := database.ListHistory(index)
+
+	if err != nil {
+		slog.Error("Error listing history: ", slog.Any("err", err))
+		components = []discord.LayoutComponent{
+			discord.TextDisplayComponent{
+				Content: err.Error(),
+			},
+		}
+		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+			Components: &components,
+			Flags:      util.ConfigFile.SetComponentV2Flags(),
+		})
+		if err != nil {
+			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
+		}
+
+		return
+	}
+
+	var container discord.ContainerComponent
+	for _, hist := range history {
+		user, err := event.Client().Rest.GetUser(snowflake.MustParse(hist.UserID))
+		if err != nil {
+			slog.Error("Error fetching user", slog.Any("err", err))
+		}
+
+		container.Components = append(container.Components, discord.SectionComponent{
+			Components: []discord.SectionSubComponent{
+				discord.TextDisplayComponent{
+					Content: fmt.Sprintf("**ID:** %d\n**Model Name:** %s\n**User:** %s", hist.ID, hist.ModelName, user.Username),
+				},
+				discord.TextDisplayComponent{
+					Content: fmt.Sprintf("**Prompt:**\r%s", hist.Prompt),
+				},
+			},
+			Accessory: discord.ButtonComponent{
+				Style:    discord.ButtonStylePrimary,
+				Label:    "Replay",
+				CustomID: fmt.Sprintf("admin_prompt_page_replay_%d", hist.ID),
+			},
+		},
+			discord.SeparatorComponent{},
+		)
+	}
+	container.Components = append(container.Components,
+		discord.ActionRowComponent{
+			Components: []discord.InteractiveComponent{
+				discord.ButtonComponent{
+					CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", 0),
+					Label:    "Previous",
+					Style:    discord.ButtonStylePrimary,
+				},
+				discord.ButtonComponent{
+					CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 0),
+					Label:    "Next",
+					Style:    discord.ButtonStylePrimary,
+				},
+			},
+		},
+	)
+
+	if len(history) == 0 {
+		container.Components = []discord.ContainerSubComponent{
+			discord.TextDisplayComponent{
+				Content: "No History Yet",
+			},
+		}
+	}
+	components = append(components, container)
+	return
 }
 
 func containsModel(model string, models []ollamaApi.ListModelResponse) bool {

@@ -498,8 +498,8 @@ func AddHistory(hist History) error {
 	return tx.Commit()
 }
 
-func ListHistory() (history []History, err error) {
-	rows, err := duckdbClient.Query(`SELECT * FROM history`)
+func ListHistory(index int) (history []History, err error) {
+	rows, err := duckdbClient.Query(`SELECT * FROM history WHERE id > ? ORDER BY id ASC LIMIT 6;`, index)
 
 	if err != nil {
 		return nil, err
@@ -517,6 +517,16 @@ func ListHistory() (history []History, err error) {
 	}
 	return
 
+}
+
+func CountHistory() int {
+	row := duckdbClient.QueryRow(`SELECT currval('seq_history') AS currval;`)
+	var index int32
+	err := row.Scan(&index)
+	if err != nil {
+		slog.Error("Error fetching current sequence value:", slog.Any("err", err))
+	}
+	return int(index)
 }
 
 func GetHistory(id int) (history History, err error) {
