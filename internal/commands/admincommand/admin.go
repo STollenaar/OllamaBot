@@ -739,6 +739,11 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 							Label:    "Post Prompt",
 							CustomID: "admin_prompt_page_post",
 						},
+						discord.ButtonComponent{
+							Style:    discord.ButtonStyleDanger,
+							Label:    "Retry Prompt",
+							CustomID: fmt.Sprintf("admin_prompt_page_retry_%d", history.ID),
+						},
 					},
 				},
 			}
@@ -773,6 +778,8 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 			index -= 6
 		}
 		return promptListHandler(index, event)
+	case "retry":
+		fallthrough
 	case "replay":
 		id, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
 		history, err := database.GetHistory(id)
@@ -810,6 +817,11 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 							Style:    discord.ButtonStylePrimary,
 							Label:    "Post Prompt",
 							CustomID: "admin_prompt_page_post",
+						},
+						discord.ButtonComponent{
+							Style:    discord.ButtonStyleDanger,
+							Label:    "Retry Prompt",
+							CustomID: fmt.Sprintf("admin_prompt_page_retry_%d", id),
 						},
 					},
 				},
