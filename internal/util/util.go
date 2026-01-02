@@ -100,3 +100,20 @@ func GetSeparator() discord.SeparatorComponent {
 		Spacing: discord.SeparatorSpacingSizeLarge,
 	}
 }
+
+
+func IntToInt32Slice(input []int) []int32 {
+	output := make([]int32, len(input))
+	for i, v := range input {
+		output[i] = int32(v)
+	}
+	return output
+}
+
+func Int32ToIntSlice(input []int32) []int {
+	output := make([]int, len(input))
+	for i, v := range input {
+		output[i] = int(v)
+	}
+	return output
+}

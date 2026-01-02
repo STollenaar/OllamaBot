@@ -77,6 +77,14 @@ type UserContext struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// Thread records
+type Thread struct {
+	ThreadID  string
+	Context   []int32
+	Prompt    string
+	ModelName string
+}
+
 func init() {
 
 	var err error
@@ -575,6 +583,73 @@ func SetContext(userContext UserContext) error {
 		context = EXCLUDED.context,
 		updated_at = EXCLUDED.updated_at;
 	`, userContext.UserID, userContext.ModelName, userContext.Context, now, now)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// AddThread inserts a new thread record with an empty context slice.
+func AddThread(modelName, systemPrompt, thread_id string) error {
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		INSERT INTO threads (thread_id, model_name, system_prompt, context)
+		VALUES (?, ?, ?, ?);
+	`, thread_id, modelName, systemPrompt, []int{})
+
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func GetThread(id string) (Thread, error) {
+	row := duckdbClient.QueryRow(`
+		SELECT * FROM threads
+		WHERE thread_id = ?;
+	`, id)
+
+	var thread_id, model_name, system_prompt string
+	var context []interface{}
+	err := row.Scan(&thread_id, &model_name, &system_prompt, &context)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return Thread{}, err
+		} else {
+			slog.Error("Error fetching contexts:", slog.Any("err", err))
+		}
+	}
+
+	contextSlice := make([]int32, len(context))
+	for i, v := range context {
+		contextSlice[i] = v.(int32)
+	}
+
+	return Thread{
+		Context:   contextSlice,
+		ThreadID:  thread_id,
+		Prompt:    system_prompt,
+		ModelName: model_name,
+	}, nil
+}
+
+func UpdateThreadContext(id string, context []int32) error {
+	tx, err := duckdbClient.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+		UPDATE threads
+		SET context = ?
+		WHERE thread_id = ?;
+		`, context, id)
 	if err != nil {
 		return err
 	}

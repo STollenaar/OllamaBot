@@ -19,6 +19,7 @@ import (
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/stollenaar/ollamabot/internal/commands"
+	"github.com/stollenaar/ollamabot/internal/listeners/threadlistener"
 	"github.com/stollenaar/ollamabot/internal/routes"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
@@ -36,7 +37,7 @@ func init() {
 	flag.Parse()
 
 	c, err := disgo.New(util.GetDiscordToken(),
-		bot.WithGatewayConfigOpts(gateway.WithIntents(gateway.IntentDirectMessages)),
+		bot.WithGatewayConfigOpts(gateway.WithIntents(gateway.IntentDirectMessages |gateway.IntentGuildMessages | gateway.IntentMessageContent)),
 		bot.WithEventListenerFunc(func(event *events.ApplicationCommandInteractionCreate) {
 			data := event.SlashCommandInteractionData()
 			commands.CommandHandlers[data.CommandName()](event)
@@ -47,6 +48,7 @@ func init() {
 		bot.WithEventListenerFunc(func(event *events.ComponentInteractionCreate) {
 			commands.ComponentHandlers[strings.Split(event.Data.CustomID(), "_")[0]](event)
 		}),
+		bot.WithEventListenerFunc(threadlistener.Listener),
 		// bot.WithEventListenerFunc(dmlistener.Listener), // TODO
 	)
 

@@ -1,7 +1,6 @@
-package promptcommand
+package threadcommand
 
 import (
-	"context"
 	"iter"
 	"log"
 	"log/slog"
@@ -16,14 +15,14 @@ import (
 )
 
 var (
-	PromptCmd = PromptCommand{
-		Name:        "prompt",
-		Description: "Prompt command to query ollama",
+	ThreadCmd = ThreadCommand{
+		Name:        "thread",
+		Description: "spawn a thread for a contained conversation",
 	}
 	OllamaClient *ollamaApi.Client
 )
 
-type PromptCommand struct {
+type ThreadCommand struct {
 	Name        string
 	Description string
 }
@@ -36,7 +35,7 @@ func init() {
 	OllamaClient = client
 }
 
-func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
+func (t ThreadCommand) Handler(event *events.ApplicationCommandInteractionCreate) {
 	models, err := database.ListPlatformModels()
 
 	if err != nil {
@@ -58,8 +57,8 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	}
 
 	err = event.Modal(discord.ModalCreate{
-		CustomID: "prompt",
-		Title:    "Submit Prompt",
+		CustomID: "thread",
+		Title:    "Create LLM Thread",
 		Components: []discord.LayoutComponent{
 			discord.LabelComponent{
 				Label: "Select Model",
@@ -69,28 +68,19 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 				},
 			},
 			discord.LabelComponent{
-				Label: "Prompt",
+				Label: "Title",
 				Component: discord.TextInputComponent{
-					CustomID: "prompt",
-					Style:    discord.TextInputStyleParagraph,
+					CustomID: "title",
+					Style:    discord.TextInputStyleShort,
 					Required: true,
 				},
 			},
 			discord.LabelComponent{
-				Label: "Context",
-				Component: discord.StringSelectMenuComponent{
-					CustomID: "context",
-					Options: []discord.StringSelectMenuOption{
-						{
-							Label: "New Context",
-							Value: "new_context",
-						},
-						{
-							Label:   "Current Context",
-							Value:   "current_context",
-							Default: true,
-						},
-					},
+				Label: "System prompt",
+				Component: discord.TextInputComponent{
+					CustomID: "system",
+					Style:    discord.TextInputStyleParagraph,
+					Required: true,
 				},
 			},
 		},
@@ -100,7 +90,7 @@ func (p PromptCommand) Handler(event *events.ApplicationCommandInteractionCreate
 	}
 }
 
-func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) {
+func (t ThreadCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) {
 	err := event.DeferCreateMessage(util.ConfigFile.SetEphemeral() == discord.MessageFlagEphemeral)
 
 	if err != nil {
@@ -109,52 +99,31 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 	}
 
 	submittedData := extractModalSubmitData(event.Data.AllComponents())
-	slog.Info("Received prompt submission",
+	slog.Info("Received model submission",
 		slog.String("model", submittedData["model"]),
-		slog.String("prompt", submittedData["prompt"]),
+		slog.String("system", submittedData["system"]),
+		slog.String("title", submittedData["title"]),
 	)
 
-	err = database.AddHistory(database.History{
-		ModelName: submittedData["model"],
-		UserID:    event.User().ID.String(),
-		Prompt:    submittedData["prompt"],
+	thread, err := event.Client().Rest.CreateThread(event.Channel().ID(), discord.GuildPublicThreadCreate{
+		Name:                submittedData["title"],
+		AutoArchiveDuration: discord.AutoArchiveDuration24h,
 	})
 
 	if err != nil {
-		slog.Error("Error saving history: ", slog.Any("err", err))
+		slog.Error("Error creating thread: ", slog.Any("err", err))
+		return
 	}
 
-	var ollamaContext []int32
-	if submittedData["context"] == "current_context" {
-		ollamaContext = database.GetContext(event.User().ID.String(), submittedData["model"])
+	err = database.AddThread(submittedData["model"], submittedData["system"], thread.ID().String())
+
+	if err != nil {
+		slog.Error("Error saving thread info: ", slog.Any("err", err))
+		return
 	}
-
-	OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
-		Model:   submittedData["model"],
-		Prompt:  submittedData["prompt"],
-		Stream:  new(bool),
-		Context: util.Int32ToIntSlice(ollamaContext),
-	}, func(gr ollamaApi.GenerateResponse) error {
-		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Content: &gr.Response,
-		})
-		if err != nil {
-			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", gr.Response))
-		}
-
-		err = database.SetContext(database.UserContext{
-			UserID:    event.User().ID.String(),
-			ModelName: submittedData["model"],
-			Context:   util.IntToInt32Slice(gr.Context),
-		})
-		if err != nil {
-			slog.Error("Error updating context:", slog.Any("err", err))
-		}
-		return err
-	})
 }
 
-func (p PromptCommand) CreateCommandArguments() []discord.ApplicationCommandOption {
+func (t ThreadCommand) CreateCommandArguments() []discord.ApplicationCommandOption {
 	return nil
 }
 

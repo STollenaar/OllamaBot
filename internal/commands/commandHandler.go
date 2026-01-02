@@ -8,6 +8,7 @@ import (
 	"github.com/stollenaar/ollamabot/internal/commands/admincommand"
 	"github.com/stollenaar/ollamabot/internal/commands/listcommand"
 	"github.com/stollenaar/ollamabot/internal/commands/promptcommand"
+	"github.com/stollenaar/ollamabot/internal/commands/threadcommand"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
 
@@ -21,6 +22,7 @@ var (
 		admincommand.AdminCmd,
 		listcommand.ListCmd,
 		promptcommand.PromptCmd,
+		threadcommand.ThreadCmd,
 	}
 	ApplicationCommands []discord.ApplicationCommandCreate
 	CommandHandlers     = make(map[string]func(e *events.ApplicationCommandInteractionCreate))
