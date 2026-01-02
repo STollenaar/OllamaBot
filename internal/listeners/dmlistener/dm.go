@@ -1,6 +1,7 @@
 package dmlistener
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/disgoorg/disgo/events"
@@ -20,4 +21,6 @@ func init() {
 }
 
 func Listener(dm *events.DMMessageCreate) {
+	channel, _ := dm.Client().Rest.GetChannel(dm.ChannelID)
+	fmt.Println(channel)
 }

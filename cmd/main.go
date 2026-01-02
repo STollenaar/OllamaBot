@@ -19,7 +19,6 @@ import (
 	"github.com/disgoorg/disgo/gateway"
 	"github.com/disgoorg/snowflake/v2"
 	"github.com/stollenaar/ollamabot/internal/commands"
-	"github.com/stollenaar/ollamabot/internal/listeners/dmlistener"
 	"github.com/stollenaar/ollamabot/internal/routes"
 	"github.com/stollenaar/ollamabot/internal/util"
 )
@@ -48,7 +47,7 @@ func init() {
 		bot.WithEventListenerFunc(func(event *events.ComponentInteractionCreate) {
 			commands.ComponentHandlers[strings.Split(event.Data.CustomID(), "_")[0]](event)
 		}),
-		bot.WithEventListenerFunc(dmlistener.Listener), // TODO
+		// bot.WithEventListenerFunc(dmlistener.Listener), // TODO
 	)
 
 	if err != nil {
