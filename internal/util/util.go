@@ -4,11 +4,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/disgo/events"
 )
 
 const (
@@ -116,4 +118,42 @@ func Int32ToIntSlice(input []int32) []int {
 		output[i] = int(v)
 	}
 	return output
+}
+
+// UpdateInteractionResponse updates the interaction response for application command events.
+func UpdateInteractionResponse(event *events.ApplicationCommandInteractionCreate, components []discord.LayoutComponent) {
+	_, err := event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+		Components: &components,
+		Flags:      ConfigFile.SetComponentV2Flags(),
+	})
+	if err != nil {
+		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
+	}
+}
+
+// RespondWithError builds a simple error component and updates the interaction response.
+func RespondWithError(event *events.ApplicationCommandInteractionCreate, err error) {
+	components := []discord.LayoutComponent{
+		discord.TextDisplayComponent{Content: err.Error()},
+	}
+	UpdateInteractionResponse(event, components)
+}
+
+// UpdateComponentInteractionResponse updates the interaction response for component events.
+func UpdateComponentInteractionResponse(event *events.ComponentInteractionCreate, components []discord.LayoutComponent) {
+	_, err := event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
+		Components: &components,
+		Flags:      ConfigFile.SetComponentV2Flags(),
+	})
+	if err != nil {
+		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
+	}
+}
+
+// RespondWithErrorComponent builds a simple error component and updates the component interaction response.
+func RespondWithErrorComponent(event *events.ComponentInteractionCreate, err error) {
+	components := []discord.LayoutComponent{
+		discord.TextDisplayComponent{Content: err.Error()},
+	}
+	UpdateComponentInteractionResponse(event, components)
 }

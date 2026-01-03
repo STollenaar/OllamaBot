@@ -40,13 +40,7 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 				Content: err.Error(),
 			},
 		}
-		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Components: &components,
-			Flags:      util.ConfigFile.SetComponentV2Flags(),
-		})
-		if err != nil {
-			slog.Error("Error updating error", slog.Any("err", err))
-		}
+		util.UpdateInteractionResponse(event, components)
 		return
 	}
 
@@ -75,14 +69,7 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 		}
 		components = append(components, container)
 	}
-	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-		Components: &components,
-		Flags:      util.ConfigFile.SetComponentV2Flags(),
-	})
-
-	if err != nil {
-		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-	}
+	util.UpdateInteractionResponse(event, components)
 }
 
 func (l ListCommand) CreateCommandArguments() []discord.ApplicationCommandOption {

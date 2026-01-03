@@ -67,13 +67,7 @@ func (a AdminCommand) Handler(event *events.ApplicationCommandInteractionCreate)
 	case "prompt":
 		components = promptHandler(sub, event)
 	}
-	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-		Components: &components,
-		Flags:      util.ConfigFile.SetComponentV2Flags(),
-	})
-	if err != nil {
-		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-	}
+	util.UpdateInteractionResponse(event, components)
 }
 
 func (a AdminCommand) ComponentHandler(event *events.ComponentInteractionCreate) {
@@ -102,13 +96,7 @@ func (a AdminCommand) ComponentHandler(event *events.ComponentInteractionCreate)
 		})
 	}
 
-	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-		Components: &components,
-		Flags:      util.ConfigFile.SetComponentV2Flags(),
-	})
-	if err != nil {
-		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-	}
+	util.UpdateComponentInteractionResponse(event, components)
 }
 
 func (a AdminCommand) CreateCommandArguments() []discord.ApplicationCommandOption {
@@ -269,25 +257,13 @@ func ollamaHandler(args discord.SlashCommandInteractionData, event *events.Appli
 		})
 		if err != nil {
 			slog.Error("Error pulling model: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.RespondWithError(event, err)
 			return
-		} else {
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: "Pulled model",
-				},
-			}
+		}
+		components = []discord.LayoutComponent{
+			discord.TextDisplayComponent{
+				Content: "Pulled model",
+			},
 		}
 	case "list":
 		resp, err := OllamaClient.List(context.TODO())
@@ -336,56 +312,28 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 					Content: fmt.Sprintf("Model %s is not already in Ollama", model),
 				},
 			}
+			util.UpdateInteractionResponse(event, components)
 			return
 		}
 
 		err = database.AddModel(model)
 		if err != nil {
 			slog.Error("Error creating model: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.RespondWithError(event, err)
 		} else {
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: "Successfully added the model",
 				},
 			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.UpdateInteractionResponse(event, components)
 		}
 	case "list":
 		models, err := database.ListModels()
 
 		if err != nil {
 			slog.Error("Error listing platforms: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
-
+			util.RespondWithError(event, err)
 			return
 		}
 
@@ -414,31 +362,14 @@ func modelHandler(args discord.SlashCommandInteractionData, event *events.Applic
 		err := database.RemoveModel(args.Options["name"].String())
 		if err != nil {
 			slog.Error("Error removing model: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.RespondWithError(event, err)
 		} else {
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: "Successfully removed the model",
 				},
 			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.UpdateInteractionResponse(event, components)
 		}
 	}
 	return
@@ -456,50 +387,21 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 		err := database.AddPlatform(platform)
 		if err != nil {
 			slog.Error("Error creating platform: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.RespondWithError(event, err)
 		} else {
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: "Successfully added the platform",
 				},
 			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.UpdateInteractionResponse(event, components)
 		}
 	case "list":
 		platforms, err := database.ListPlatforms()
 
 		if err != nil {
 			slog.Error("Error listing platforms: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
-
+			util.RespondWithError(event, err)
 			return
 		}
 
@@ -528,31 +430,14 @@ func platformHandler(args discord.SlashCommandInteractionData, event *events.App
 		err := database.RemovePlatform(args.Options["id"].String())
 		if err != nil {
 			slog.Error("Error removing platform: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.RespondWithError(event, err)
 		} else {
 			components = []discord.LayoutComponent{
 				discord.TextDisplayComponent{
 					Content: "Successfully removed the platform",
 				},
 			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
+			util.UpdateInteractionResponse(event, components)
 		}
 	}
 	return
@@ -563,18 +448,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 
 	if err != nil {
 		slog.Error("Error fetching platform: ", slog.Any("err", err))
-		components = []discord.LayoutComponent{
-			discord.TextDisplayComponent{
-				Content: err.Error(),
-			},
-		}
-		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Components: &components,
-			Flags:      util.ConfigFile.SetComponentV2Flags(),
-		})
-		if err != nil {
-			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-		}
+		util.RespondWithError(event, err)
 		return
 	}
 
@@ -582,36 +456,14 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 
 	if err != nil {
 		slog.Error("Error fetching model: ", slog.Any("err", err))
-		components = []discord.LayoutComponent{
-			discord.TextDisplayComponent{
-				Content: err.Error(),
-			},
-		}
-		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Components: &components,
-			Flags:      util.ConfigFile.SetComponentV2Flags(),
-		})
-		if err != nil {
-			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-		}
+		util.RespondWithError(event, err)
 		return
 	}
 
 	err = database.SetPlatformModels(platform.ID, model, args.Options["tokens"].Int())
 	if err != nil {
 		slog.Error("Error setting platform_model tokens: ", slog.Any("err", err))
-		components = []discord.LayoutComponent{
-			discord.TextDisplayComponent{
-				Content: err.Error(),
-			},
-		}
-		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Components: &components,
-			Flags:      util.ConfigFile.SetComponentV2Flags(),
-		})
-		if err != nil {
-			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-		}
+		util.RespondWithError(event, err)
 		return
 	}
 
@@ -620,13 +472,7 @@ func platformModelHandler(args discord.SlashCommandInteractionData, event *event
 			Content: "Successfully added the platform",
 		},
 	}
-	_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-		Components: &components,
-		Flags:      util.ConfigFile.SetComponentV2Flags(),
-	})
-	if err != nil {
-		slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-	}
+	util.UpdateInteractionResponse(event, components)
 	return
 }
 
@@ -637,19 +483,7 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 
 		if err != nil {
 			slog.Error("Error listing history: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
-
+			util.RespondWithError(event, err)
 			return
 		}
 
@@ -707,19 +541,7 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 
 		if err != nil {
 			slog.Error("Error fetching history: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
-
+			util.RespondWithError(event, err)
 			return
 		}
 
@@ -786,19 +608,7 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 
 		if err != nil {
 			slog.Error("Error fetching history: ", slog.Any("err", err))
-			components = []discord.LayoutComponent{
-				discord.TextDisplayComponent{
-					Content: err.Error(),
-				},
-			}
-			_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-				Components: &components,
-				Flags:      util.ConfigFile.SetComponentV2Flags(),
-			})
-			if err != nil {
-				slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-			}
-
+			util.RespondWithErrorComponent(event, err)
 			return
 		}
 
@@ -839,19 +649,7 @@ func promptListHandler(index int, event *events.ComponentInteractionCreate) (com
 
 	if err != nil {
 		slog.Error("Error listing history: ", slog.Any("err", err))
-		components = []discord.LayoutComponent{
-			discord.TextDisplayComponent{
-				Content: err.Error(),
-			},
-		}
-		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Components: &components,
-			Flags:      util.ConfigFile.SetComponentV2Flags(),
-		})
-		if err != nil {
-			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", components))
-		}
-
+		util.RespondWithErrorComponent(event, err)
 		return
 	}
 
