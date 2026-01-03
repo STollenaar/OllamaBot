@@ -91,12 +91,7 @@ func (t ThreadCommand) Handler(event *events.ApplicationCommandInteractionCreate
 }
 
 func (t ThreadCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) {
-	err := event.DeferCreateMessage(util.ConfigFile.SetEphemeral() == discord.MessageFlagEphemeral)
-
-	if err != nil {
-		slog.Error("Error deferring: ", slog.Any("err", err))
-		return
-	}
+	event.DeferUpdateMessage()
 
 	submittedData := extractModalSubmitData(event.Data.AllComponents())
 	slog.Info("Received model submission",
