@@ -40,6 +40,8 @@ func Listener(event *events.GuildMessageCreate) {
 		}
 	}
 
+	event.Client().Rest.SendTyping(event.ChannelID)
+
 	OllamaClient.Generate(context.TODO(), &ollamaApi.GenerateRequest{
 		Model:   thread.ModelName,
 		System:  thread.Prompt,
