@@ -12,8 +12,8 @@ resource "helm_release" "github_arc_runner_ollamabot" {
 
 resource "kubernetes_role_binding" "github_arc_admin" {
   metadata {
-    name      = "namespace-admin-binding"
-    namespace = kubernetes_namespace_v1.ollamabot.id
+    name      = "namespace-arc-ollamabot-admin-binding"
+    namespace = data.terraform_remote_state.kubernetes_cluster.outputs.discordbots.namespace.metadata.0.name
   }
 
   role_ref {
