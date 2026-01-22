@@ -135,8 +135,18 @@ func (p PromptCommand) ModalHandler(event *events.ModalSubmitInteractionCreate) 
 		Stream:  new(bool),
 		Context: util.Int32ToIntSlice(ollamaContext),
 	}, func(gr ollamaApi.GenerateResponse) error {
+		// Getting around the 4096 word limit
+		contents := util.BreakContent(gr.Response, 4096)
+
+		var embeds []discord.Embed
+		for _, content := range contents {
+			embeds = append(embeds, discord.Embed{
+				Description: content,
+			})
+		}
+
 		_, err = event.Client().Rest.UpdateInteractionResponse(event.ApplicationID(), event.Token(), discord.MessageUpdate{
-			Content: &gr.Response,
+			Embeds: &embeds,
 		})
 		if err != nil {
 			slog.Error("Error editing the response:", slog.Any("err", err), slog.Any(". With body:", gr.Response))

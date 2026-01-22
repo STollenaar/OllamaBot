@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/disgoorg/disgo/discord"
@@ -156,4 +157,22 @@ func RespondWithErrorComponent(event *events.ComponentInteractionCreate, err err
 		discord.TextDisplayComponent{Content: err.Error()},
 	}
 	UpdateComponentInteractionResponse(event, components)
+}
+
+func BreakContent(content string, maxLength int) (result []string) {
+	words := strings.Split(content, " ")
+
+	var tmp string
+	for i, word := range words {
+		if i == 0 {
+			tmp = word
+		} else if len(tmp)+len(word) < maxLength {
+			tmp += " " + word
+		} else {
+			result = append(result, tmp)
+			tmp = word
+		}
+	}
+	result = append(result, tmp)
+	return result
 }
