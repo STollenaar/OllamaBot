@@ -66,12 +66,12 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 						Style:    discord.ButtonStylePrimary,
 					},
 					discord.ButtonComponent{
-						CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 6),
+						CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 5),
 						Label:    "Next",
 						Style:    discord.ButtonStylePrimary,
 					},
 					discord.ButtonComponent{
-						CustomID: fmt.Sprintf("admin_prompt_page_last_%d", maxSeq-6),
+						CustomID: fmt.Sprintf("admin_prompt_page_last_%d", maxSeq-5),
 						Label:    "Last",
 						Style:    discord.ButtonStyleSecondary,
 					},
@@ -138,23 +138,14 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 			event.Message.Components[0],
 		}
 	case "previous":
-		index, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
-		index -= 6
-		if index < 0 {
-			index = 0
-		}
-		return promptListHandler(index, maxSeq-6, event)
+		fallthrough
 	case "next":
 		index, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
-		index += 6
-		if index > maxSeq {
-			index -= 6
-		}
-		return promptListHandler(index, maxSeq-6, event)
+		return promptListHandler(index, maxSeq-5, event)
 	case "last":
-		return promptListHandler(maxSeq-6, maxSeq-6, event)
+		return promptListHandler(maxSeq-5, maxSeq-5, event)
 	case "first":
-		return promptListHandler(0, maxSeq-6, event)
+		return promptListHandler(0, maxSeq-5, event)
 	case "retry":
 		fallthrough
 	case "replay":
@@ -233,33 +224,41 @@ func promptListHandler(index, max int, event *events.ComponentInteractionCreate)
 			discord.SeparatorComponent{},
 		)
 	}
+	prev := index - 5
+	next := index + 5
+	if prev < 0 {
+		prev = 0
+	}
+	if next > max {
+		next = max
+	}
 	container.Components = append(container.Components,
 		discord.ActionRowComponent{
 			Components: []discord.InteractiveComponent{
 				discord.ButtonComponent{
-					CustomID: fmt.Sprintf("admin_prompt_page_first_%d", index),
+					CustomID: fmt.Sprintf("admin_prompt_page_first_%d", 0),
 					Label:    "First",
 					Style:    discord.ButtonStyleSecondary,
 				},
 				discord.ButtonComponent{
-					CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", index),
+					CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", prev),
 					Label:    "Previous",
 					Style:    discord.ButtonStylePrimary,
 				},
 				discord.ButtonComponent{
-					CustomID: fmt.Sprintf("admin_prompt_page_next_%d", index),
+					CustomID: fmt.Sprintf("admin_prompt_page_next_%d", next),
 					Label:    "Next",
 					Style:    discord.ButtonStylePrimary,
 				},
 				discord.ButtonComponent{
-					CustomID: fmt.Sprintf("admin_prompt_page_last_%d", index),
+					CustomID: fmt.Sprintf("admin_prompt_page_last_%d", max),
 					Label:    "Last",
 					Style:    discord.ButtonStyleSecondary,
 				},
 			},
 		},
 		discord.TextDisplayComponent{
-			Content: fmt.Sprintf("Page: %d/%d", index, max),
+			Content: fmt.Sprintf("Page: %d/%d", index/6+1, max/6+1),
 		},
 	)
 

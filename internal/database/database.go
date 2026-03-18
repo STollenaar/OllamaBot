@@ -507,7 +507,7 @@ func AddHistory(hist History) error {
 }
 
 func ListHistory(index int) (history []History, err error) {
-	rows, err := duckdbClient.Query(`SELECT * FROM history WHERE id > ? ORDER BY id ASC LIMIT 6;`, index)
+	rows, err := duckdbClient.Query(`SELECT * FROM history WHERE id > ? ORDER BY id ASC LIMIT 5;`, index)
 
 	if err != nil {
 		return nil, err
