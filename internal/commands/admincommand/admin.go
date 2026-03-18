@@ -511,18 +511,30 @@ func promptHandler(args discord.SlashCommandInteractionData, event *events.Appli
 				discord.SeparatorComponent{},
 			)
 		}
+		maxSeq := database.CountHistory()
+
 		container.Components = append(container.Components,
 			discord.ActionRowComponent{
 				Components: []discord.InteractiveComponent{
+					discord.ButtonComponent{
+						CustomID: fmt.Sprintf("admin_prompt_page_first_%d", 0),
+						Label:    "First",
+						Style:    discord.ButtonStyleSecondary,
+					},
 					discord.ButtonComponent{
 						CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", 0),
 						Label:    "Previous",
 						Style:    discord.ButtonStylePrimary,
 					},
 					discord.ButtonComponent{
-						CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 0),
+						CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 6),
 						Label:    "Next",
 						Style:    discord.ButtonStylePrimary,
+					},
+					discord.ButtonComponent{
+						CustomID: fmt.Sprintf("admin_prompt_page_last_%d", maxSeq-6),
+						Label:    "Last",
+						Style:    discord.ButtonStyleSecondary,
 					},
 				},
 			},
@@ -580,6 +592,7 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 		return []discord.LayoutComponent{}
 	}
 
+	maxSeq := database.CountHistory()
 	switch strings.Split(event.Data.CustomID(), "_")[3] {
 	case "post":
 		return []discord.LayoutComponent{
@@ -591,15 +604,18 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 		if index < 0 {
 			index = 0
 		}
-		return promptListHandler(index, event)
+		return promptListHandler(index, maxSeq-6, event)
 	case "next":
 		index, _ := strconv.Atoi(strings.Split(event.Data.CustomID(), "_")[4])
 		index += 6
-		maxSeq := database.CountHistory()
 		if index > maxSeq {
 			index -= 6
 		}
-		return promptListHandler(index, event)
+		return promptListHandler(index, maxSeq-6, event)
+	case "last":
+		return promptListHandler(maxSeq-6, maxSeq-6, event)
+	case "first":
+		return promptListHandler(0, maxSeq-6, event)
 	case "retry":
 		fallthrough
 	case "replay":
@@ -644,7 +660,7 @@ func promptButtonHandler(event *events.ComponentInteractionCreate) (components [
 	}
 }
 
-func promptListHandler(index int, event *events.ComponentInteractionCreate) (components []discord.LayoutComponent) {
+func promptListHandler(index, max int, event *events.ComponentInteractionCreate) (components []discord.LayoutComponent) {
 	history, err := database.ListHistory(index)
 
 	if err != nil {
@@ -682,16 +698,29 @@ func promptListHandler(index int, event *events.ComponentInteractionCreate) (com
 		discord.ActionRowComponent{
 			Components: []discord.InteractiveComponent{
 				discord.ButtonComponent{
-					CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", 0),
+					CustomID: fmt.Sprintf("admin_prompt_page_first_%d", index),
+					Label:    "First",
+					Style:    discord.ButtonStyleSecondary,
+				},
+				discord.ButtonComponent{
+					CustomID: fmt.Sprintf("admin_prompt_page_previous_%d", index),
 					Label:    "Previous",
 					Style:    discord.ButtonStylePrimary,
 				},
 				discord.ButtonComponent{
-					CustomID: fmt.Sprintf("admin_prompt_page_next_%d", 0),
+					CustomID: fmt.Sprintf("admin_prompt_page_next_%d", index),
 					Label:    "Next",
 					Style:    discord.ButtonStylePrimary,
 				},
+				discord.ButtonComponent{
+					CustomID: fmt.Sprintf("admin_prompt_page_last_%d", index),
+					Label:    "Last",
+					Style:    discord.ButtonStyleSecondary,
+				},
 			},
+		},
+		discord.TextDisplayComponent{
+			Content: fmt.Sprintf("Page: %d/%d", index, max),
 		},
 	)
 
