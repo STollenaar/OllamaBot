@@ -1,20 +1,18 @@
 package routes
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stollenaar/ollamabot/internal/database"
 )
 
 // RegisterTradeRoutes registers trade-related routes to the given router group.
-func RegisterTradeRoutes(rg *gin.RouterGroup) {
-	trades := rg.Group("/trades")
-	{
-		trades.GET("/:id", GetTrade)
-		trades.GET("/platform/:id", ListTrades)
-		trades.POST("/:id", UpdateTrade)
-	}
+func RegisterTradeRoutes(mux *http.ServeMux) {
+	mux.HandleFunc(fmt.Sprintf("GET %s/trades/:id", API), GetTrade)
+	mux.HandleFunc(fmt.Sprintf("GET %s/trades/platform/:id", API), ListTrades)
+	mux.HandleFunc(fmt.Sprintf("POST %s/trades/:id", API), UpdateTrade)
 }
 
 // GetTrade returns a specific trade by ID.
@@ -27,14 +25,16 @@ func RegisterTradeRoutes(rg *gin.RouterGroup) {
 //	@Success		200	{object}	database.Transaction
 //	@Failure		404	{object}	map[string]string
 //	@Router			/trades/{id} [get]
-func GetTrade(c *gin.Context) {
-	id := c.Param("id")
+func GetTrade(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+
+	id := params.Get("id")
 	tx, err := database.GetTransactionByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Transaction not found"})
 		return
 	}
-	c.JSON(http.StatusOK, tx)
+	writeJSON(w, http.StatusOK, tx)
 }
 
 // ListTrades returns all trades.
@@ -47,15 +47,15 @@ func GetTrade(c *gin.Context) {
 //	@Success		200	{array}		database.Transaction
 //	@Failure		500	{object}	map[string]string
 //	@Router			/trades/platform/{id} [get]
-func ListTrades(c *gin.Context) {
-	id := c.Param("id")
+func ListTrades(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	id := params.Get("id")
 	tx, err := database.GetTransactionByPlatformID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transactions not found"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Transaction not found"})
 		return
 	}
-	c.JSON(http.StatusOK, tx)
-
+	writeJSON(w, http.StatusOK, tx)
 }
 
 // UpdateTrade updates the status of a transaction by ID.
@@ -72,35 +72,38 @@ func ListTrades(c *gin.Context) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/trades/{id} [post]
-func UpdateTrade(c *gin.Context) {
-	id := c.Param("id")
+func UpdateTrade(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	id := params.Get("id")
+
 	type request struct {
 		PlatformID string `json:"platform_id" binding:"required"`
 		Status     string `json:"status" binding:"required"`
 	}
-	var req request
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+	var req request
+	decoder := json.NewDecoder(r.Body)
+
+	if err := decoder.Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 		return
 	}
 
 	tx, err := database.GetTransactionByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "Transaction not found"})
 		return
 	}
 
 	if tx.PlatformID != req.PlatformID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Platform ID does not match"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Platform ID does not match"})
 		return
 	}
 
 	tx.Status = req.Status
 	if err := database.UpdateTransaction(*tx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update transaction"})
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to update transaction"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Transaction updated"})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Transaction updated"})
 }
