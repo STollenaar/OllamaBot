@@ -29,9 +29,20 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 		slog.Error("Error deferring: ", slog.Any("err", err))
 		return
 	}
-
-	models, err := database.ListPlatformModels()
 	var components []discord.LayoutComponent
+	sub := event.SlashCommandInteractionData()
+	switch *sub.SubCommandName {
+	case "models":
+		components = l.handleModels(event)
+	case "context":
+		components = l.handleSystemPrompt(event)
+	}
+
+	util.UpdateInteractionResponse(event, components)
+}
+
+func (l ListCommand) handleModels(event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	models, err := database.ListPlatformModels()
 
 	if err != nil {
 		slog.Error("Error pulling model: ", slog.Any("err", err))
@@ -69,9 +80,56 @@ func (l ListCommand) Handler(event *events.ApplicationCommandInteractionCreate) 
 		}
 		components = append(components, container)
 	}
-	util.UpdateInteractionResponse(event, components)
+	return
+}
+
+func (l ListCommand) handleSystemPrompt(event *events.ApplicationCommandInteractionCreate) (components []discord.LayoutComponent) {
+	systemPrompts, err := database.GetSystemPrompts(event.User().ID.String())
+
+	if err != nil {
+		slog.Error("Error pulling model: ", slog.Any("err", err))
+		components = []discord.LayoutComponent{
+			discord.TextDisplayComponent{
+				Content: err.Error(),
+			},
+		}
+		util.UpdateInteractionResponse(event, components)
+		return
+	}
+
+	for _, systemPrompt := range systemPrompts {
+		container := discord.ContainerComponent{
+			Components: []discord.ContainerSubComponent{
+				discord.TextDisplayComponent{
+					Content: fmt.Sprintf("### Name: %s\n### System Prompt: %s\n", systemPrompt.ModelName, systemPrompt.Prompt),
+				},
+			},
+		}
+		components = append(components, container)
+	}
+
+	if len(components) == 0 {
+		container := discord.ContainerComponent{
+			Components: []discord.ContainerSubComponent{
+				discord.TextDisplayComponent{
+					Content: "No prompts are available at the moment",
+				},
+			},
+		}
+		components = append(components, container)
+	}
+	return
 }
 
 func (l ListCommand) CreateCommandArguments() []discord.ApplicationCommandOption {
-	return nil
+	return []discord.ApplicationCommandOption{
+		discord.ApplicationCommandOptionSubCommand{
+			Name:        "models",
+			Description: "List current pulled models",
+		},
+		discord.ApplicationCommandOptionSubCommand{
+			Name:        "context",
+			Description: "List current context",
+		},
+	}
 }

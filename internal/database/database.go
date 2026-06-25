@@ -568,6 +568,33 @@ func GetContext(userID, modelName string) []int32 {
 	return context
 }
 
+func GetSystemPrompts(userID string) (history []History, err error) {
+	rows, err := duckdbClient.Query(`
+		SELECT model_name, system_prompt FROM contexts
+		WHERE user_id = ?;
+	`, userID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var module_name, system_prompt string
+		err := rows.Scan(&module_name, &system_prompt)
+		if err != nil && err != sql.ErrNoRows {
+			slog.Error("Error fetching contexts:", slog.Any("err", err))
+		}
+
+		history = append(history, History{
+			ModelName: module_name,
+			Prompt:    system_prompt,
+		})
+	}
+
+	return
+
+}
+
 func SetContext(userContext UserContext) error {
 	tx, err := duckdbClient.Begin()
 	if err != nil {
